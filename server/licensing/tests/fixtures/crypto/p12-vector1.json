@@ -1,0 +1,16 @@
+{
+  "description": "Phase 12 cross-impl authorization verification vector",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAEodGzjuqLJbgxlPEDUepocCHmWDN2N81RSUmlt7fHoc=\n-----END PUBLIC KEY-----\n",
+  "signedAuthorization": {
+    "protocolVersion": 1,
+    "authorizationVersion": 1,
+    "licenseId": "00000000-0000-0000-0000-000000000001",
+    "productId": "MINIPOS_V1",
+    "deviceKeyId": "test-device-p12",
+    "validFrom": "2026-01-01T00:00:00.000Z",
+    "validUntil": "2027-01-01T00:00:00.000Z",
+    "issuedAt": "2026-01-01T00:00:00.000Z",
+    "signingKeyId": "p12-fixture-key",
+    "signature": "WCdNvqaVEKIh5qoE5Etw7sQ5O4gMdPmSiflH8aVOxR41_9y7a83DAVBMI3VZW0X5q7Cx1-Ic6hqf2Jwm5CZ7Dw"
+  }
+}

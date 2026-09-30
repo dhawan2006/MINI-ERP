@@ -1,0 +1,25 @@
+Noto Sans Font License
+======================
+
+Font: Noto Sans (Variable TrueType)
+Source: https://github.com/google/fonts/tree/main/ofl/notosans
+Version: Variable (wdth, wght axes)
+
+License: SIL Open Font License, Version 1.1
+https://scripts.sil.org/OFL
+
+Copyright 2022 The Noto Project Authors
+https://github.com/notofonts/latin-greek-cyrillic
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+---
+
+BUNDLING NOTE (Mini Billing System):
+This font is bundled with the Mini Billing System application exclusively to
+enable deterministic PDF receipt generation with proper Unicode support,
+including the Indian Rupee sign (₹, U+20B9). It is embedded into each
+generated PDF and is not distributed independently. The bundling is permitted
+under the SIL OFL v1.1 terms.

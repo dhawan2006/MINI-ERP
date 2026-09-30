@@ -1,0 +1,15 @@
+{
+  "serverPublicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAgPohn61hcckPoK5GfSN7hN+MLpdAt8+zznwDTuMAbko=\n-----END PUBLIC KEY-----\n",
+  "signedAuthorization": {
+    "protocolVersion": 1,
+    "authorizationVersion": 1,
+    "licenseId": "fd9e3564-c8f7-4594-b9e0-5df151c721b4",
+    "productId": "PROD_1",
+    "deviceKeyId": "test-device-123",
+    "signingKeyId": "mpos-sign-test-01",
+    "validFrom": "2026-09-29T16:20:38.861Z",
+    "validUntil": "2026-09-30T16:20:38.861Z",
+    "issuedAt": "2026-09-29T16:20:38.861Z",
+    "signature": "uyE1PAccFjtpckb_pgpdB3Mtay6cpJ1KC1Nj0NtpP9VFr2qovKNXYw_hCHC4mX9Ci6G7zCAOwrB12qY6DcgDCg"
+  }
+}

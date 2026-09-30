@@ -1,0 +1,27 @@
+appId: com.minipos.app
+productName: "Mini POS"
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - assets/**/*
+  - package.json
+extraResources:
+  - from: "assets/native"
+    to: "native"
+    filter: ["**/*"]
+asar: true
+mac:
+  target: dmg
+  hardenedRuntime: true
+  gatekeeperAssess: false
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: "Mini POS"
+  uninstallDisplayName: "Mini POS"
