@@ -34,7 +34,11 @@ jobs:
 
       - name: Build and Package App (macOS)
         if: matrix.os == 'macos-latest'
-        run: npm run package:mac:arm64 -- -p never && npm run package:mac:x64 -- -p never
+        run: |
+          node scripts/prebuild-check.js
+          npm run build
+          npx electron-builder --mac --arm64 -p never
+          npx electron-builder --mac --x64 -p never
         env:
           # Production URL environment variables go here
           VITE_LICENSING_SERVER_URL: ${{ secrets.VITE_LICENSING_SERVER_URL }}
@@ -43,7 +47,10 @@ jobs:
 
       - name: Build and Package App (Windows)
         if: matrix.os == 'windows-latest'
-        run: npm run package:win:x64 -- -p never
+        run: |
+          node scripts/prebuild-check.js
+          npm run build
+          npx electron-builder --win --x64 -p never
         env:
           # Production URL environment variables go here
           VITE_LICENSING_SERVER_URL: ${{ secrets.VITE_LICENSING_SERVER_URL }}
