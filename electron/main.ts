@@ -168,7 +168,19 @@ app.whenReady().then(async () => {
   const SERVER_PUBLIC_KEY_PEM = import.meta.env.VITE_LICENSING_SERVER_PUBLIC_KEY || process.env.LICENSING_SERVER_PUBLIC_KEY;
   const SERVER_KEY_ID = import.meta.env.VITE_LICENSING_SERVER_KEY_ID || process.env.LICENSING_SERVER_KEY_ID || 'qa-key-1';
   if (SERVER_PUBLIC_KEY_PEM) {
-    authVerifier.registerTrustedKey(SERVER_KEY_ID, SERVER_PUBLIC_KEY_PEM);
+    // GitHub Secrets or Vite sometimes inject literal '\n' characters or wrap strings in extra quotes.
+    // We sanitize the key so crypto.createPublicKey receives a valid PEM string.
+    let cleanPem = SERVER_PUBLIC_KEY_PEM;
+    if (cleanPem.startsWith('"') && cleanPem.endsWith('"')) {
+      try {
+        cleanPem = JSON.parse(cleanPem);
+      } catch {
+        cleanPem = cleanPem.slice(1, -1);
+      }
+    }
+    cleanPem = cleanPem.replace(/\\n/g, '\n');
+    
+    authVerifier.registerTrustedKey(SERVER_KEY_ID, cleanPem);
     logger.info('LicensingRuntime: Server public key loaded.');
   } else {
     logger.warn('LicensingRuntime: No server public key configured. All authorizations will fail verification.');
