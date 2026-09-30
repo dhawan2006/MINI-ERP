@@ -25,7 +25,9 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd server/licensing && npm ci
 
       - name: Build and Package App (macOS)
         if: matrix.os == 'macos-latest'
