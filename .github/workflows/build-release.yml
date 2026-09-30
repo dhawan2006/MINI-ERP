@@ -6,6 +6,9 @@ on:
       - 'v*' # Trigger when a tag like v1.0.0 is pushed
   workflow_dispatch: # Allow running manually from the GitHub Actions UI
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -33,7 +36,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: npm run package:mac:arm64 && npm run package:mac:x64
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Production URL environment variables go here
           VITE_LICENSING_SERVER_URL: ${{ secrets.VITE_LICENSING_SERVER_URL }}
           VITE_LICENSING_SERVER_KEY_ID: ${{ secrets.VITE_LICENSING_SERVER_KEY_ID }}
@@ -43,7 +45,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: npm run package:win:x64
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Production URL environment variables go here
           VITE_LICENSING_SERVER_URL: ${{ secrets.VITE_LICENSING_SERVER_URL }}
           VITE_LICENSING_SERVER_KEY_ID: ${{ secrets.VITE_LICENSING_SERVER_KEY_ID }}
