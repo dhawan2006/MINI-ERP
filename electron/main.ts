@@ -94,7 +94,7 @@ app.whenReady().then(async () => {
   // 3. Instantiate Application Services
   const settingsService = new SettingsService(settingsRepo);
   const productService = new ProductService(productRepo);
-  
+
   // Phase 8: BillingService is created now but the licensing gate is wired in
   // after licensingRuntime.initialize() below (licensing subsystem must be
   // initialized before the gate can be used).
@@ -130,11 +130,11 @@ app.whenReady().then(async () => {
   const backupService = BackupService.getInstance();
   const restoreService = RestoreService.getInstance();
 
-  const dialogService = process.env.MINIPOS_E2E_TEST === 'true' 
-    ? new FakeDialogService() 
+  const dialogService = process.env.MINIPOS_E2E_TEST === 'true'
+    ? new FakeDialogService()
     : new ElectronDialogService();
 
-  
+
   registerBackupHandlers(backupService, dialogService);
   registerRestoreHandlers(restoreService, dialogService, billingService);
 
@@ -149,7 +149,7 @@ app.whenReady().then(async () => {
   // This guarantees the renderer never starts in an ambiguous state.
   // SEC-RT-003: IPC failure during startup cannot produce ACTIVE.
   const isTestMode = process.env.MINIPOS_E2E_TEST === 'true';
-  
+
   let identityAdapter;
   if (isTestMode) {
     const { FakeDeviceIdentityProvider } = await import('./native/FakeDeviceIdentityProvider');
@@ -157,7 +157,7 @@ app.whenReady().then(async () => {
   } else {
     identityAdapter = new NativeDeviceIdentityAdapter();
   }
-  
+
   // SEC-RT-XXX: Identity provider must be explicitly initialized before use
   await identityAdapter.initialize();
 
@@ -168,19 +168,7 @@ app.whenReady().then(async () => {
   const SERVER_PUBLIC_KEY_PEM = import.meta.env.VITE_LICENSING_SERVER_PUBLIC_KEY || process.env.LICENSING_SERVER_PUBLIC_KEY;
   const SERVER_KEY_ID = import.meta.env.VITE_LICENSING_SERVER_KEY_ID || process.env.LICENSING_SERVER_KEY_ID || 'qa-key-1';
   if (SERVER_PUBLIC_KEY_PEM) {
-    // GitHub Secrets or Vite sometimes inject literal '\n' characters or wrap strings in extra quotes.
-    // We sanitize the key so crypto.createPublicKey receives a valid PEM string.
-    let cleanPem = SERVER_PUBLIC_KEY_PEM;
-    if (cleanPem.startsWith('"') && cleanPem.endsWith('"')) {
-      try {
-        cleanPem = JSON.parse(cleanPem);
-      } catch {
-        cleanPem = cleanPem.slice(1, -1);
-      }
-    }
-    cleanPem = cleanPem.replace(/\\n/g, '\n');
-    
-    authVerifier.registerTrustedKey(SERVER_KEY_ID, cleanPem);
+    authVerifier.registerTrustedKey(SERVER_KEY_ID, SERVER_PUBLIC_KEY_PEM);
     logger.info('LicensingRuntime: Server public key loaded.');
   } else {
     logger.warn('LicensingRuntime: No server public key configured. All authorizations will fail verification.');
@@ -188,15 +176,15 @@ app.whenReady().then(async () => {
 
   const authStore = new LocalAuthorizationStore(userDataPath);
   const licensingService = new LicensingService(authStore, authVerifier, identityAdapter);
-  
+
   if (isTestMode) {
     // E2E tests now use a valid test authorization.json seeded via test-entry.js.
     // Licensing authority remains perfectly intact; no production bypass exists here.
   }
-  
+
   const LICENSING_SERVER_URL = import.meta.env.VITE_LICENSING_SERVER_URL || process.env.LICENSING_SERVER_URL || 'http://localhost:3456';
   const licensingClient = new LicensingClient(LICENSING_SERVER_URL);
-  
+
   const licensingRuntime = new LicensingRuntimeService(licensingService, identityAdapter, licensingClient);
   const licensingLifecycle = new LicensingLifecycleService(licensingClient, identityAdapter, authStore);
 
@@ -242,7 +230,7 @@ app.whenReady().then(async () => {
 
   // Setup primitive IPC handlers
   ipcMain.handle('system:ping', () => 'pong from main process');
-  
+
   ipcMain.handle('system:factoryReset', async () => {
     try {
       logger.warn('Executing factory reset...');
@@ -254,13 +242,13 @@ app.whenReady().then(async () => {
         db.prepare('DELETE FROM settings').run();
       });
       transaction();
-      
+
       logger.info('Factory reset complete. Relaunching application.');
       setTimeout(() => {
         app.relaunch();
         app.quit();
       }, 500); // Small delay to allow IPC response to return
-      
+
       return { success: true };
     } catch (error: any) {
       logger.error('Factory reset failed', error);
