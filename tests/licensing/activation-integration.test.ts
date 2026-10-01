@@ -5,10 +5,11 @@ import { NativeDeviceIdentityAdapter } from '../../electron/native/NativeDeviceI
 import { ChallengeService } from '../../server/licensing/src/crypto/ChallengeService';
 import { ActivationService } from '../../server/licensing/src/services/ActivationService';
 import { ProductionDeviceProofVerifier } from '../../server/licensing/src/crypto/deviceProof';
-import { ServerAuthorizationSigner, SignedAuthorization } from '../../server/licensing/src/crypto/ServerAuthorizationSigner';
-import { AuthorizationVerifier } from '../../server/licensing/src/crypto/AuthorizationVerifier';
+import { ServerAuthorizationSigner } from '../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { SignedAuthorization } from '../../src/shared/crypto/AuthorizationPayload';
+import { AuthorizationVerifier } from '../../src/shared/crypto/AuthorizationVerifier';
 import { hashLicenseKey } from '../../server/licensing/src/crypto/licenseKey';
-import { canonicalize } from '../../server/licensing/src/crypto/canonicalize';
+import { canonicalize } from '../../src/shared/crypto/canonicalize';
 
 describe('Phase 5 — Activation Integration (Real Native Device + Server Crypto)', () => {
   let pool: Pool;

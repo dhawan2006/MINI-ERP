@@ -29,6 +29,10 @@ export function translateError(error: unknown): IpcError {
     };
   }
 
+  if (error instanceof Error && (error as any).code === 'RESTORE_IN_PROGRESS') {
+    return { code: 'RESTORE_IN_PROGRESS', message: error.message };
+  }
+
   // Fallback for infrastructure errors (SQLite) or unexpected errors
   // We NEVER send raw SQLite errors or stack traces to the renderer!
   return {

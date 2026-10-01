@@ -1,22 +1,9 @@
+import { AuthorizationPayload, SignedAuthorization } from '../../../../src/shared/crypto/AuthorizationPayload';
 import crypto from 'crypto';
-import { canonicalize } from './canonicalize';
-import { CryptoError } from './cryptoError';
+import { canonicalize } from '../../../../src/shared/crypto/canonicalize';
+import { CryptoError } from '../../../../src/shared/crypto/cryptoError';
 
-export interface AuthorizationPayload {
-  protocolVersion: number;
-  authorizationVersion: number;
-  licenseId: string;
-  productId: string;
-  deviceKeyId: string;
-  validFrom: string; // ISO8601
-  validUntil: string; // ISO8601
-  issuedAt: string; // ISO8601
-  signingKeyId: string;
-}
 
-export type SignedAuthorization = AuthorizationPayload & {
-  signature: string; // base64url encoded
-};
 
 export class ServerAuthorizationSigner {
   private keyMap: Map<string, crypto.KeyObject> = new Map();

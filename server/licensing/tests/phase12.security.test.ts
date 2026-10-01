@@ -23,9 +23,10 @@ import {
   SigningKeyRegistry,
   signAuthorization,
 } from '../src/crypto/SigningKeyProvider';
-import { ServerAuthorizationSigner, AuthorizationPayload } from '../src/crypto/ServerAuthorizationSigner';
-import { AuthorizationVerifier } from '../src/crypto/AuthorizationVerifier';
-import { CryptoError } from '../src/crypto/cryptoError';
+import { ServerAuthorizationSigner } from '../src/crypto/ServerAuthorizationSigner';
+import { AuthorizationPayload } from '../../../src/shared/crypto/AuthorizationPayload';
+import { AuthorizationVerifier } from '../../../src/shared/crypto/AuthorizationVerifier';
+import { CryptoError } from '../../../src/shared/crypto/cryptoError';
 
 describe('Phase 12 — Production Security Regression Suite', () => {
 

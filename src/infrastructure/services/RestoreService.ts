@@ -32,11 +32,13 @@ export class RestoreService {
   public async validateBackup(sourcePath: string): Promise<RestoreValidationResult> {
     log.info(`[RestoreService] Validating backup at ${sourcePath}`);
     
-    if (!fs.existsSync(sourcePath)) {
+    try {
+      await fs.promises.access(sourcePath, fs.constants.F_OK);
+    } catch {
       return { isValid: false, error: 'RESTORE_INVALID_BACKUP: File does not exist.' };
     }
     
-    const stat = fs.statSync(sourcePath);
+    const stat = await fs.promises.stat(sourcePath);
     if (stat.size === 0) {
       return { isValid: false, error: 'RESTORE_INVALID_BACKUP: File is empty.' };
     }
@@ -145,7 +147,7 @@ export class RestoreService {
 
       // 3. Prepare temporary working copy
       log.info(`[RestoreService] Preparing temporary restore database at ${tempWorkingPath}`);
-      fs.copyFileSync(sourcePath, tempWorkingPath);
+      await fs.promises.copyFile(sourcePath, tempWorkingPath);
 
       // 4. Migrate temp copy if older
       if (validation.isOlder) {
@@ -179,18 +181,18 @@ export class RestoreService {
       log.info(`[RestoreService] Performing database replacement.`);
       try {
         // Move current aside for rollback
-        fs.renameSync(liveDbPath, rollbackPath);
+        await fs.promises.rename(liveDbPath, rollbackPath);
         
         // Remove WAL/SHM of current DB if they exist to prevent corruption
-        if (fs.existsSync(`${liveDbPath}-wal`)) fs.unlinkSync(`${liveDbPath}-wal`);
-        if (fs.existsSync(`${liveDbPath}-shm`)) fs.unlinkSync(`${liveDbPath}-shm`);
+        try { await fs.promises.unlink(`${liveDbPath}-wal`); } catch (e) {}
+        try { await fs.promises.unlink(`${liveDbPath}-shm`); } catch (e) {}
 
         // Move prepared DB into place
-        fs.renameSync(tempWorkingPath, liveDbPath);
+        await fs.promises.rename(tempWorkingPath, liveDbPath);
       } catch (err: any) {
         // EMERGENCY ROLLBACK
         log.error(`[RestoreService] Replacement failed. Attempting rollback! ${err.message}`);
-        this.attemptRollback(liveDbPath, rollbackPath);
+        await this.attemptRollback(liveDbPath, rollbackPath);
         throw new Error(`RESTORE_REPLACEMENT_FAILED: ${err.message}`);
       }
 
@@ -205,7 +207,7 @@ export class RestoreService {
       } catch (err: any) {
         log.error(`[RestoreService] Reopen/verify failed. Attempting rollback! ${err.message}`);
         closeDatabase();
-        this.attemptRollback(liveDbPath, rollbackPath);
+        await this.attemptRollback(liveDbPath, rollbackPath);
         initDatabase(userDataPath);
         throw new Error(`RESTORE_VERIFICATION_FAILED: ${err.message}`);
       }
@@ -220,26 +222,26 @@ export class RestoreService {
       throw err;
     } finally {
       // Cleanup temp working path if it still exists (e.g. if failed before replacement)
-      if (fs.existsSync(tempWorkingPath)) {
-        try { fs.unlinkSync(tempWorkingPath); } catch (e) {}
-      }
+      try { await fs.promises.unlink(tempWorkingPath); } catch (e) {}
       this.isRestoring = false;
     }
   }
 
-  private attemptRollback(liveDbPath: string, rollbackPath: string) {
+  private async attemptRollback(liveDbPath: string, rollbackPath: string) {
     try {
-      if (fs.existsSync(rollbackPath)) {
-        log.info(`[RestoreService] Rolling back: replacing active DB with rollback DB.`);
-        if (fs.existsSync(liveDbPath)) {
-          fs.unlinkSync(liveDbPath);
-        }
-        if (fs.existsSync(`${liveDbPath}-wal`)) fs.unlinkSync(`${liveDbPath}-wal`);
-        if (fs.existsSync(`${liveDbPath}-shm`)) fs.unlinkSync(`${liveDbPath}-shm`);
-        fs.renameSync(rollbackPath, liveDbPath);
-      } else {
+      try {
+        await fs.promises.access(rollbackPath, fs.constants.F_OK);
+      } catch {
         log.error(`[RestoreService] Rollback DB not found!`);
+        return;
       }
+
+      log.info(`[RestoreService] Rolling back: replacing active DB with rollback DB.`);
+      try { await fs.promises.unlink(liveDbPath); } catch (e) {}
+      try { await fs.promises.unlink(`${liveDbPath}-wal`); } catch (e) {}
+      try { await fs.promises.unlink(`${liveDbPath}-shm`); } catch (e) {}
+      
+      await fs.promises.rename(rollbackPath, liveDbPath);
     } catch (err: any) {
       log.error(`[RestoreService] FATAL: Rollback failed! ${err.message}`);
       throw new Error(`RESTORE_ROLLBACK_FAILED: ${err.message}`);

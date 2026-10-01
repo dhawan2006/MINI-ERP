@@ -8,6 +8,7 @@ process.env.LICENSING_SERVER_PUBLIC_KEY = publicKey.export({ type: 'spki', forma
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
+Object.defineProperty(app, 'isPackaged', { get: () => false });
 
 let userDataPath = null;
 const userDataArg = process.argv.find(arg => arg.startsWith('--user-data-dir='));

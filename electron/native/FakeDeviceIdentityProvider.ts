@@ -1,3 +1,4 @@
+import { app } from 'electron';
 /**
  * Mini POS — Fake Device Identity Provider
  *
@@ -12,6 +13,11 @@ import { createHash, generateKeyPairSync, sign } from 'crypto';
 import { IDeviceIdentityProvider, DeviceIdentityStatus } from './IDeviceIdentityProvider';
 
 export class FakeDeviceIdentityProvider implements IDeviceIdentityProvider {
+  constructor() {
+    if (app && app.isPackaged) {
+      throw new Error('SEC-FATAL: FakeDeviceIdentityProvider cannot be used in production builds.');
+    }
+  }
   private privateKey?: any;
   private publicKeyDer?: Buffer;
   private initialized = false;

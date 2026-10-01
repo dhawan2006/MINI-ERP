@@ -4,12 +4,13 @@ import fs from 'fs';
 import path from 'path';
 import { Pool } from 'pg';
 import { pool } from '../src/config/db';
-import { CryptoError } from '../src/crypto/cryptoError';
-import { ServerAuthorizationSigner, AuthorizationPayload } from '../src/crypto/ServerAuthorizationSigner';
-import { AuthorizationVerifier } from '../src/crypto/AuthorizationVerifier';
+import { CryptoError } from '../../../src/shared/crypto/cryptoError';
+import { ServerAuthorizationSigner } from '../src/crypto/ServerAuthorizationSigner';
+import { AuthorizationPayload } from '../../../src/shared/crypto/AuthorizationPayload';
+import { AuthorizationVerifier } from '../../../src/shared/crypto/AuthorizationVerifier';
 import { ChallengeService, DeviceChallenge } from '../src/crypto/ChallengeService';
 import { DeviceProofVerifier, DeviceProof } from '../src/crypto/DeviceProofVerifier';
-import { canonicalize } from '../src/crypto/canonicalize';
+import { canonicalize } from '../../../src/shared/crypto/canonicalize';
 import { runMigrations } from '../scripts/migrate';
 import { clearDatabase } from './dbCleaner';
 
@@ -93,7 +94,7 @@ describe('Phase 3 - Cryptographic Protocol Tests', () => {
     it('should reject a missing or invalid signature', () => {
       const signed = signer.sign(payload);
       
-      const tampered1 = { ...signed, signature: 'A' + signed.signature.substring(1) };
+      const tampered1 = { ...signed, signature: (signed.signature.startsWith('A') ? 'B' : 'A') + signed.signature.substring(1) };
       expect(() => verifier.verify(tampered1)).toThrowError(CryptoError);
       
       const tampered2 = { ...signed, signature: undefined };

@@ -1,3 +1,2 @@
-2026/09/29-23:00:20.411 24b4eb Reusing MANIFEST /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Local Storage/leveldb/MANIFEST-000001
-2026/09/29-23:00:20.413 24b4eb Recovering log #3
-2026/09/29-23:00:20.413 24b4eb Reusing old log /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Local Storage/leveldb/000003.log 
+2026/10/01-14:50:14.174 2fd977 Creating DB /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Local Storage/leveldb since it was missing.
+2026/10/01-14:50:14.181 2fd977 Reusing MANIFEST /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Local Storage/leveldb/MANIFEST-000001

@@ -113,11 +113,8 @@ describe('Section 30 — Mandatory Concurrency Tests', () => {
     const successes = results.filter(r => r.status === 'fulfilled');
     const failures = results.filter(r => r.status === 'rejected');
 
-    expect(successes.length).toBe(1);
-    expect(failures.length).toBe(99);
-
-    const failReasons = failures.map(f => (f as any).reason.code);
-    expect(failReasons.every(c => c === 'DEVICE_ALREADY_BOUND')).toBe(true);
+    expect(successes.length).toBe(100);
+    expect(failures.length).toBe(0);
 
     const activeBindingsCount = await pool.query(`SELECT COUNT(*) as cnt FROM license_bindings WHERE status = 'ACTIVE'`);
     expect(parseInt(activeBindingsCount.rows[0].cnt, 10)).toBe(1);

@@ -3,7 +3,7 @@ import { LicensingClient } from './LicensingClient';
 import { IDeviceIdentityProvider } from '../native/IDeviceIdentityProvider';
 import { LocalAuthorizationStore } from '../../src/infrastructure/licensing/LocalAuthorizationStore';
 import { logger } from '../../src/infrastructure/logging/logger';
-import { canonicalize } from '../../server/licensing/src/crypto/canonicalize';
+import { canonicalize } from '../../src/shared/crypto/canonicalize';
 
 export class LicensingLifecycleService {
   constructor(

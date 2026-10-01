@@ -35,14 +35,14 @@
  */
 
 import { LicensingService } from '../../src/application/use-cases/LicensingService';
-import { SignedAuthorization } from '../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { SignedAuthorization } from '../../src/shared/crypto/AuthorizationPayload';
 import { LicensingStatusDTO, LicensingRuntimeState } from '../../src/shared/licensing-dto';
 import { logger } from '../../src/infrastructure/logging/logger';
 import { BrowserWindow } from 'electron';
 import os from 'os';
 import { LicensingClient } from './LicensingClient';
 import { IDeviceIdentityProvider } from '../native/IDeviceIdentityProvider';
-import { canonicalize } from '../../server/licensing/src/crypto/canonicalize';
+import { canonicalize } from '../../src/shared/crypto/canonicalize';
 
 /** Map internal LicensingService codes → authoritative LicensingRuntimeState. */
 function mapErrorToRuntimeState(errorCode: string | undefined): LicensingRuntimeState {

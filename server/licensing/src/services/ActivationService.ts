@@ -12,7 +12,8 @@ export class ActivationError extends Error {
   }
 }
 
-import { ServerAuthorizationSigner, SignedAuthorization } from '../crypto/ServerAuthorizationSigner';
+import { ServerAuthorizationSigner } from '../crypto/ServerAuthorizationSigner';
+import { SignedAuthorization } from '../../../../src/shared/crypto/AuthorizationPayload';
 
 export class ActivationService {
   constructor(

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { canonicalize } from './canonicalize';
 import { CryptoError } from './cryptoError';
-import { AuthorizationPayload } from './ServerAuthorizationSigner';
+import { AuthorizationPayload } from './AuthorizationPayload';
 
 export class AuthorizationVerifier {
   private keyMap: Map<string, crypto.KeyObject> = new Map();

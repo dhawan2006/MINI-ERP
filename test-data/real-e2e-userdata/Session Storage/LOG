@@ -1,3 +1,2 @@
-2026/09/29-23:00:20.648 24b4e9 Reusing MANIFEST /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Session Storage/MANIFEST-000001
-2026/09/29-23:00:20.648 24b4e9 Recovering log #3
-2026/09/29-23:00:20.648 24b4e9 Reusing old log /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Session Storage/000003.log 
+2026/10/01-14:50:14.977 2fd975 Creating DB /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Session Storage since it was missing.
+2026/10/01-14:50:14.983 2fd975 Reusing MANIFEST /Users/laksh/Desktop/mini_ERP/test-data/real-e2e-userdata/Session Storage/MANIFEST-000001

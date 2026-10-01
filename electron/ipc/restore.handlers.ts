@@ -1,4 +1,5 @@
 import { ipcMain, app } from 'electron';
+import { DatabaseLock } from './DatabaseLock';
 import { RestoreService, RestoreValidationResult } from '../../src/infrastructure/services/RestoreService';
 import { IpcResponse } from '../../src/shared/ipc-contracts';
 import { IDialogService } from '../../src/application/interfaces/IDialogService';
@@ -42,12 +43,19 @@ export function registerRestoreHandlers(
   });
 
   ipcMain.handle('restore:execute', async (_, filePath: string): Promise<IpcResponse<void>> => {
+    if (DatabaseLock.isLocked()) return { success: false, error: { code: 'RESTORE_IN_PROGRESS', message: 'Restore already in progress' } };
     try {
       if (billingService.hasActiveDraft()) {
         return { success: false, error: { code: 'RESTORE_ACTIVE_DRAFT', message: 'An active draft exists. Finish or discard the current bill before restoring a backup.' } };
       }
 
-      await restoreService.executeRestore(filePath);
+      DatabaseLock.acquire();
+      try {
+        await restoreService.executeRestore(filePath);
+      } catch(err: any) {
+        DatabaseLock.release();
+        throw err;
+      }
       
       // Delay restart slightly to allow the UI to receive the success response and show a toast
       setTimeout(() => {

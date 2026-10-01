@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { ILocalAuthorizationStore, LocalAuthorizationError } from '../../application/interfaces/ILocalAuthorizationStore';
-import { SignedAuthorization } from '../../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { SignedAuthorization } from '../../shared/crypto/AuthorizationPayload';
 
 export class LocalAuthorizationStore implements ILocalAuthorizationStore {
   private authPath: string;

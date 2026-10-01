@@ -4,12 +4,14 @@ import { IpcResponse } from '../../src/shared/ipc-contracts';
 import { ActiveBillDTO, FinalizedBillDTO } from '../../src/shared/dto';
 import { translateError, mapActiveBillToDTO } from './mappers';
 import { validateNonEmptyString, validatePositiveInteger } from './validation';
+import { DatabaseLock } from './DatabaseLock';
 
 export function registerBillingHandlers(billingService: BillingService) {
   
   // Helper to wrap service calls safely
   const handleRequest = async (action: () => void): Promise<IpcResponse<ActiveBillDTO>> => {
     try {
+      DatabaseLock.check();
       action();
       return {
         success: true,
@@ -67,6 +69,7 @@ export function registerBillingHandlers(billingService: BillingService) {
 
   ipcMain.handle('billing:finalize', async (): Promise<IpcResponse<FinalizedBillDTO>> => {
     try {
+      DatabaseLock.check();
       const result = billingService.finalizeBill();
       return { success: true, data: result };
     } catch (error) {

@@ -17,8 +17,9 @@ import fs from 'fs/promises';
 import { LicensingRuntimeService } from '../../electron/licensing/LicensingRuntimeService';
 import { LicensingService } from '../../src/application/use-cases/LicensingService';
 import { LocalAuthorizationStore } from '../../src/infrastructure/licensing/LocalAuthorizationStore';
-import { AuthorizationVerifier } from '../../server/licensing/src/crypto/AuthorizationVerifier';
-import { ServerAuthorizationSigner, AuthorizationPayload } from '../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { AuthorizationVerifier } from '../../src/shared/crypto/AuthorizationVerifier';
+import { ServerAuthorizationSigner } from '../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { AuthorizationPayload } from '../../src/shared/crypto/AuthorizationPayload';
 import { IDeviceIdentityProvider, DeviceIdentityStatus } from '../../electron/native/IDeviceIdentityProvider';
 import { LicensingStatusDTO } from '../../src/shared/licensing-dto';
 

@@ -4,6 +4,7 @@ import { IpcResponse } from '../../src/shared/ipc-contracts';
 import { ProductDTO } from '../../src/shared/dto';
 import { translateError, mapProductToDTO } from './mappers';
 import { validateString, validateNumber, validateBoolean } from './validation';
+import { DatabaseLock } from './DatabaseLock';
 
 export function registerProductHandlers(productService: ProductService) {
   
@@ -41,6 +42,7 @@ export function registerProductHandlers(productService: ProductService) {
 
   ipcMain.handle('products:create', async (_, name: string, priceMinor: number, barcode?: string | null): Promise<IpcResponse<ProductDTO>> => {
     try {
+      DatabaseLock.check();
       validateString(name, 'name');
       validateNumber(priceMinor, 'priceMinor');
       const product = productService.createProduct(name, priceMinor, barcode);
@@ -52,6 +54,7 @@ export function registerProductHandlers(productService: ProductService) {
 
   ipcMain.handle('products:update', async (_, id: string, name?: string, priceMinor?: number, barcode?: string | null): Promise<IpcResponse<ProductDTO>> => {
     try {
+      DatabaseLock.check();
       validateString(id, 'id');
       if (name !== undefined) validateString(name, 'name');
       if (priceMinor !== undefined) validateNumber(priceMinor, 'priceMinor');
@@ -66,6 +69,7 @@ export function registerProductHandlers(productService: ProductService) {
 
   ipcMain.handle('products:setActive', async (_, id: string, isActive: boolean): Promise<IpcResponse<void>> => {
     try {
+      DatabaseLock.check();
       validateString(id, 'id');
       validateBoolean(isActive, 'isActive');
       productService.setProductActive(id, isActive);
@@ -99,6 +103,7 @@ export function registerProductHandlers(productService: ProductService) {
 
   ipcMain.handle('products:deleteAll', async (): Promise<IpcResponse<void>> => {
     try {
+      DatabaseLock.check();
       productService.deleteAllProducts();
       return { success: true };
     } catch (error) {

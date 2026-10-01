@@ -1,4 +1,4 @@
-import { SignedAuthorization } from '../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { SignedAuthorization } from '../../src/shared/crypto/AuthorizationPayload';
 import crypto from 'crypto';
 
 export interface ProofPayload {

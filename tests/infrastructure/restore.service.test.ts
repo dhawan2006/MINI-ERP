@@ -171,15 +171,15 @@ describe('RestoreService', () => {
     const backupPath = path.join(dbDir, 'test-backup-execute.db');
     createMockBackup(backupPath);
 
-    // Mock renameSync to fail on the SECOND call (moving temp to live)
-    const originalRenameSync = fs.renameSync;
+    // Mock rename to fail on the SECOND call (moving temp to live)
+    const originalRename = fs.promises.rename;
     let callCount = 0;
-    vi.spyOn(fs, 'renameSync').mockImplementation((oldPath, newPath) => {
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (oldPath, newPath) => {
       callCount++;
       if (callCount === 2) { // 1st is live->rollback, 2nd is temp->live
         throw new Error('Simulated filesystem error');
       }
-      return originalRenameSync(oldPath, newPath);
+      return originalRename(oldPath, newPath);
     });
 
     await expect(restoreService.executeRestore(backupPath)).rejects.toThrow(/RESTORE_REPLACEMENT_FAILED/);
@@ -246,5 +246,50 @@ describe('RestoreService', () => {
     const checkDb = new Database(liveDbPath, { readonly: true });
     expect(checkDb.prepare('SELECT id FROM test_original').get().id).toBe(42);
     checkDb.close();
+  });
+
+  it('fails safely and preserves original database if file copy fails (e.g. permission denied or disk full)', async () => {
+    const backupPath = path.join(dbDir, 'test-backup-copy-fail.db');
+    createMockBackup(backupPath);
+    
+    const liveDb = new Database(liveDbPath);
+    liveDb.exec('CREATE TABLE IF NOT EXISTS test_original (id INTEGER); INSERT INTO test_original VALUES (42);');
+    liveDb.close();
+
+    vi.spyOn(fs.promises, 'copyFile').mockRejectedValueOnce(new Error('ENOSPC: no space left on device'));
+
+    await expect(restoreService.executeRestore(backupPath)).rejects.toThrow('ENOSPC: no space left on device');
+
+    const checkDb = new Database(liveDbPath, { readonly: true });
+    expect(checkDb.prepare('SELECT id FROM test_original').get().id).toBe(42);
+    checkDb.close();
+  });
+
+  it('fails safely and preserves original database if rename permission is denied (e.g. EPERM)', async () => {
+    const backupPath = path.join(dbDir, 'test-backup-rename-fail.db');
+    createMockBackup(backupPath);
+    
+    const liveDb = new Database(liveDbPath);
+    liveDb.exec('CREATE TABLE IF NOT EXISTS test_original (id INTEGER); INSERT INTO test_original VALUES (42);');
+    liveDb.close();
+
+    vi.spyOn(fs.promises, 'rename').mockRejectedValueOnce(new Error('EPERM: operation not permitted'));
+
+    await expect(restoreService.executeRestore(backupPath)).rejects.toThrow(/RESTORE_REPLACEMENT_FAILED.*EPERM/);
+
+    const checkDb = new Database(liveDbPath, { readonly: true });
+    expect(checkDb.prepare('SELECT id FROM test_original').get().id).toBe(42);
+    checkDb.close();
+  });
+
+  it('prevents concurrent restores (interrupted restore protection)', async () => {
+    const backupPath = path.join(dbDir, 'test-backup-concurrent.db');
+    createMockBackup(backupPath);
+    
+    const promise1 = restoreService.executeRestore(backupPath);
+    const promise2 = restoreService.executeRestore(backupPath);
+    
+    await expect(promise2).rejects.toThrow(/RESTORE_IN_PROGRESS/);
+    await promise1;
   });
 });

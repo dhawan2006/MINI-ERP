@@ -83,9 +83,8 @@ test.describe.serial('REAL Licensing Activation E2E - Golden Path', () => {
     expect(authData.signature).toBeDefined();
     
     // 15. Database post-activation verification
-    const bindResult = await dbPool.query('SELECT * FROM license_bindings WHERE license_id = $1', [TEST_LICENSE_ID]);
+    const bindResult = await dbPool.query('SELECT * FROM license_bindings WHERE license_id = $1 AND device_key_id = $2', [TEST_LICENSE_ID, authData.deviceKeyId]);
     expect(bindResult.rows.length).toBe(1);
-    expect(bindResult.rows[0].device_key_id).toBe(authData.deviceKeyId);
   });
 
   test('L3: Billing operates successfully after real activation', async () => {

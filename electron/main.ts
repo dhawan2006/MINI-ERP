@@ -27,7 +27,7 @@ import { FakeDialogService } from './services/FakeDialogService';
 // Licensing — Phase 7
 import { NativeDeviceIdentityAdapter } from './native/NativeDeviceIdentityAdapter';
 import { LocalAuthorizationStore } from '../src/infrastructure/licensing/LocalAuthorizationStore';
-import { AuthorizationVerifier } from '../server/licensing/src/crypto/AuthorizationVerifier';
+import { AuthorizationVerifier } from '../src/shared/crypto/AuthorizationVerifier';
 import { LicensingService } from '../src/application/use-cases/LicensingService';
 import { LicensingRuntimeService } from './licensing/LicensingRuntimeService';
 import { LicensingLifecycleService } from "./licensing/LicensingLifecycleService";
@@ -35,10 +35,10 @@ import { registerLicensingHandlers } from './ipc/licensing.handlers';
 // Phase 8
 import { LicensingBillingGate } from './licensing/LicensingBillingGate';
 // Phase 9
+// Phase 9
 import { LicensingClient } from './licensing/LicensingClient';
 
-
-
+declare const __PROD_LICENSING_SERVER_PUBLIC_KEY__: string | undefined;
 // Initialize logging and process-level crash handlers
 initLogger();
 logger.info('Application starting...');
@@ -130,7 +130,7 @@ app.whenReady().then(async () => {
   const backupService = BackupService.getInstance();
   const restoreService = RestoreService.getInstance();
 
-  const dialogService = process.env.MINIPOS_E2E_TEST === 'true'
+  const dialogService = !app.isPackaged && process.env.MINIPOS_E2E_TEST === 'true'
     ? new FakeDialogService()
     : new ElectronDialogService();
 
@@ -148,7 +148,7 @@ app.whenReady().then(async () => {
   // Must initialize BEFORE the BrowserWindow is created.
   // This guarantees the renderer never starts in an ambiguous state.
   // SEC-RT-003: IPC failure during startup cannot produce ACTIVE.
-  const isTestMode = process.env.MINIPOS_E2E_TEST === 'true';
+  const isTestMode = !app.isPackaged && process.env.MINIPOS_E2E_TEST === 'true';
 
   let identityAdapter;
   if (isTestMode) {
@@ -165,7 +165,15 @@ app.whenReady().then(async () => {
   // In production, the key is embedded in the application bundle.
   // In testing/development, it starts empty (no keys registered → all verification fails → NOT_ACTIVATED).
   const authVerifier = new AuthorizationVerifier();
-  const SERVER_PUBLIC_KEY_PEM = import.meta.env.VITE_LICENSING_SERVER_PUBLIC_KEY || process.env.LICENSING_SERVER_PUBLIC_KEY;
+  
+  let SERVER_PUBLIC_KEY_PEM = (typeof __PROD_LICENSING_SERVER_PUBLIC_KEY__ !== 'undefined' && __PROD_LICENSING_SERVER_PUBLIC_KEY__ !== '') 
+    ? __PROD_LICENSING_SERVER_PUBLIC_KEY__ 
+    : undefined;
+
+  if (!app.isPackaged) {
+    SERVER_PUBLIC_KEY_PEM = process.env.LICENSING_SERVER_PUBLIC_KEY || import.meta.env.VITE_LICENSING_SERVER_PUBLIC_KEY || SERVER_PUBLIC_KEY_PEM;
+  }
+
   const SERVER_KEY_ID = import.meta.env.VITE_LICENSING_SERVER_KEY_ID || process.env.LICENSING_SERVER_KEY_ID || 'qa-key-1';
   if (SERVER_PUBLIC_KEY_PEM) {
     authVerifier.registerTrustedKey(SERVER_KEY_ID, SERVER_PUBLIC_KEY_PEM);

@@ -1,4 +1,4 @@
-import { SignedAuthorization } from '../../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { SignedAuthorization } from '../../shared/crypto/AuthorizationPayload';
 
 export class LocalAuthorizationError extends Error {
   constructor(public code: string, message: string) {

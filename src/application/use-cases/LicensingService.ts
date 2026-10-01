@@ -1,7 +1,7 @@
 import { ILocalAuthorizationStore, LocalAuthorizationError } from '../interfaces/ILocalAuthorizationStore';
-import { AuthorizationVerifier } from '../../../server/licensing/src/crypto/AuthorizationVerifier';
+import { AuthorizationVerifier } from '../../shared/crypto/AuthorizationVerifier';
 import { IDeviceIdentityProvider } from '../../../electron/native/IDeviceIdentityProvider';
-import { SignedAuthorization, AuthorizationPayload } from '../../../server/licensing/src/crypto/ServerAuthorizationSigner';
+import { SignedAuthorization, AuthorizationPayload } from '../../shared/crypto/AuthorizationPayload';
 import { logger } from '../../infrastructure/logging/logger';
 
 export interface LicensingState {

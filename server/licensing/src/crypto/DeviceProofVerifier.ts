@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { PoolClient } from 'pg';
-import { canonicalize } from './canonicalize';
-import { CryptoError } from './cryptoError';
+import { canonicalize } from '../../../../src/shared/crypto/canonicalize';
+import { CryptoError } from '../../../../src/shared/crypto/cryptoError';
 import { DeviceChallenge, ChallengeService } from './ChallengeService';
 
 export interface DeviceProof {

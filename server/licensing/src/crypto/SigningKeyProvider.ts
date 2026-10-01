@@ -8,9 +8,9 @@
 // ---------------------------------------------------------------------------
 
 import crypto from 'crypto';
-import { CryptoError } from './cryptoError';
-import { canonicalize } from './canonicalize';
-import { AuthorizationPayload } from './ServerAuthorizationSigner';
+import { CryptoError } from '../../../../src/shared/crypto/cryptoError';
+import { canonicalize } from '../../../../src/shared/crypto/canonicalize';
+import { AuthorizationPayload } from '../../../../src/shared/crypto/AuthorizationPayload';
 
 export interface IServerSigningKeyProvider {
   /** Returns the Key ID (kid) for the currently active signing key. */

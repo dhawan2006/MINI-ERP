@@ -4,6 +4,7 @@ import { PrintService } from '../../src/infrastructure/printing/PrintService';
 import { AppSettingsDTO, PrinterConfig } from '../../src/shared/dto';
 import { IpcResponse } from '../../src/shared/ipc-contracts';
 import { validateObject, validateBoolean, validateString, validatePositiveInteger, validateNumber } from './validation';
+import { DatabaseLock } from './DatabaseLock';
 
 function validatePrinterConfig(config: unknown): void {
   const c = config as Record<string, unknown>;
@@ -48,11 +49,15 @@ export function registerSettingsHandlers(settingsService: SettingsService, print
 
   ipcMain.handle('settings:update', async (_, settings: AppSettingsDTO): Promise<IpcResponse<AppSettingsDTO>> => {
     try {
+      DatabaseLock.check();
       validateAppSettings(settings);
       const updatedSettings = settingsService.updateSettings(settings);
       printService.updateConfig(updatedSettings.printer);
       return { success: true, data: updatedSettings };
-    } catch (error: unknown) {
+    } catch (error: any) {
+      if (error.code === 'RESTORE_IN_PROGRESS') {
+        return { success: false, error: { code: 'RESTORE_IN_PROGRESS', message: error.message } };
+      }
       const msg = error instanceof Error ? error.message : 'Failed to update settings';
       return { success: false, error: { code: 'SETTINGS_UPDATE_FAILED', message: msg } };
     }

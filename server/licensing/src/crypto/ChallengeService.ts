@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { PoolClient } from 'pg';
-import { CryptoError } from './cryptoError';
+import { CryptoError } from '../../../../src/shared/crypto/cryptoError';
 
 export interface DeviceChallenge {
   protocolVersion: 1;
