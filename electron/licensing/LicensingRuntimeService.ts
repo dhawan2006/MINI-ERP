@@ -43,6 +43,7 @@ import os from 'os';
 import { LicensingClient } from './LicensingClient';
 import { IDeviceIdentityProvider } from '../native/IDeviceIdentityProvider';
 import { canonicalize } from '../../src/shared/crypto/canonicalize';
+import { RuntimeCheckInCoordinator } from './RuntimeCheckInCoordinator';
 
 /** Map internal LicensingService codes → authoritative LicensingRuntimeState. */
 function mapErrorToRuntimeState(errorCode: string | undefined): LicensingRuntimeState {
@@ -77,7 +78,8 @@ export class LicensingRuntimeService {
   constructor(
     private readonly licensingService: LicensingService,
     private readonly identityProvider: IDeviceIdentityProvider,
-    private readonly licensingClient: LicensingClient
+    private readonly licensingClient: LicensingClient,
+    private readonly coordinator?: RuntimeCheckInCoordinator
   ) {}
 
   /**
@@ -89,6 +91,24 @@ export class LicensingRuntimeService {
     logger.info('LicensingRuntime: Initializing...');
     await this.recomputeState();
     logger.info(`LicensingRuntime: State after initialization: ${this.currentDTO.state}`);
+    
+    // Non-blocking trigger for runtime check-in on startup
+    const shouldCheckIn = this.coordinator && this.currentDTO.licenseId && 
+      (this.currentDTO.state === 'ACTIVE' || this.currentDTO.state === 'CHECKIN_OVERDUE' || 
+       this.currentDTO.state === 'DISABLED' || this.currentDTO.state === 'REVOKED');
+       
+    if (shouldCheckIn) {
+      this.identityProvider.getDeviceKeyId().then(async deviceKeyId => {
+        try {
+          await this.coordinator!.triggerCheckIn(this.currentDTO.licenseId!, deviceKeyId);
+          await this.recomputeState(); // update state after check-in
+        } catch (err: any) {
+          logger.error('LicensingRuntime: Background check-in on startup failed - ' + err?.message);
+        }
+      }).catch(err => {
+         logger.error('LicensingRuntime: Failed to get deviceKeyId for check-in on startup - ' + err?.message);
+      });
+    }
   }
 
   /**
@@ -102,17 +122,46 @@ export class LicensingRuntimeService {
     const freshState = this.licensingService.getState();
 
     if (freshState.isActivated) {
+      let finalState = this.currentDTO.state;
+      let newCheckInState = this.currentDTO.checkInState;
+
+      // Re-evaluate check-in time bounds synchronously based on stored checkInValidUntil
+      if (this.currentDTO.checkInValidUntil && finalState !== 'REVOKED' && finalState !== 'DISABLED') {
+         const nowMs = Date.now();
+         const validUntilMs = new Date(this.currentDTO.checkInValidUntil).getTime();
+         const remainingMs = validUntilMs - nowMs;
+         
+         if (remainingMs <= 0) newCheckInState = 'OVERDUE';
+         else if (remainingMs < 6 * 60 * 60 * 1000) newCheckInState = 'REQUIRED';
+         else if (remainingMs < 48 * 60 * 60 * 1000) newCheckInState = 'DUE_SOON';
+         else newCheckInState = 'CURRENT';
+
+         if (newCheckInState === 'OVERDUE' && (this.currentDTO.policyVersion || 0) > 0) {
+           finalState = 'CHECKIN_OVERDUE';
+         } else {
+           finalState = 'ACTIVE';
+         }
+      }
+
       const dto: LicensingStatusDTO = {
-        state: 'ACTIVE',
+        state: finalState,
         licenseId: freshState.licenseId,
         validFrom: freshState.validFrom,
         validUntil: freshState.validUntil,
-        // Preserve deviceKeyIdPrefix from the last full recompute
-        deviceKeyIdPrefix: this.currentDTO.state === 'ACTIVE'
-          ? this.currentDTO.deviceKeyIdPrefix
-          : undefined,
+        deviceKeyIdPrefix: this.currentDTO.deviceKeyIdPrefix,
+        policyVersion: this.currentDTO.policyVersion,
+        checkInValidUntil: this.currentDTO.checkInValidUntil,
+        pendingDirectivesCount: this.currentDTO.pendingDirectivesCount,
+        checkInState: newCheckInState
       };
+      
+      const stateChanged = this.currentDTO.state !== dto.state || this.currentDTO.checkInState !== dto.checkInState;
       this.currentDTO = { ...dto }; // store as internal reference copy
+      
+      if (stateChanged) {
+        this.broadcastStateChange();
+      }
+      
       return { ...dto }; // return a fresh copy to caller
     }
 
@@ -154,6 +203,29 @@ export class LicensingRuntimeService {
           // Truncate deviceKeyId prefix for display — the full ID stays in Main
           deviceKeyIdPrefix: undefined, // We don't expose deviceKeyId at all in this DTO
         };
+
+        if (this.coordinator && state.licenseId) {
+           try {
+             const deviceKeyId = await this.identityProvider.getDeviceKeyId();
+             const checkInResult = await this.coordinator.getCheckInState(state.licenseId, deviceKeyId);
+             
+             if (checkInResult.payload) {
+               this.currentDTO.policyVersion = checkInResult.payload.policyVersion;
+               this.currentDTO.checkInValidUntil = checkInResult.payload.checkInValidUntil;
+               this.currentDTO.pendingDirectivesCount = checkInResult.unacknowledgedCount;
+               this.currentDTO.checkInState = checkInResult.state as any;
+             }
+
+             if (checkInResult.state === 'REVOKED') this.currentDTO.state = 'REVOKED';
+             else if (checkInResult.state === 'DISABLED') this.currentDTO.state = 'DISABLED';
+             else if (checkInResult.state === 'OVERDUE' && (this.currentDTO.policyVersion || 0) > 0) {
+               this.currentDTO.state = 'CHECKIN_OVERDUE';
+             }
+           } catch (err: any) {
+             logger.error('LicensingRuntime: Failed to compute check-in state during recompute: ' + err.message);
+           }
+        }
+
         this.scheduleExpiryCheck(new Date(state.validUntil!));
       } else {
         this.clearExpiryTimer();
@@ -251,6 +323,50 @@ export class LicensingRuntimeService {
         `LicensingRuntime: State changed after resume: ${previousState} → ${this.currentDTO.state}`
       );
       this.broadcastStateChange();
+    }
+    
+    // Trigger runtime check-in on resume
+    const shouldCheckIn = this.coordinator && this.currentDTO.licenseId && 
+      (this.currentDTO.state === 'ACTIVE' || this.currentDTO.state === 'CHECKIN_OVERDUE' || 
+       this.currentDTO.state === 'DISABLED' || this.currentDTO.state === 'REVOKED');
+
+    if (shouldCheckIn) {
+      this.identityProvider.getDeviceKeyId().then(async deviceKeyId => {
+        try {
+          await this.coordinator!.triggerCheckIn(this.currentDTO.licenseId!, deviceKeyId);
+          await this.recomputeState(); // update state after check-in
+        } catch (err: any) {
+           logger.error('LicensingRuntime: Background check-in on resume failed - ' + err?.message);
+        }
+      }).catch(err => {
+         logger.error('LicensingRuntime: Failed to get deviceKeyId for check-in on resume - ' + err?.message);
+      });
+    }
+  }
+
+  /**
+   * Triggers a manual runtime check-in (Phase 2B).
+   */
+  async verifyNow(): Promise<LicensingStatusDTO> {
+    logger.info('LicensingRuntime: Manual verifyNow requested.');
+    
+    if (this.currentDTO.state !== 'ACTIVE' && this.currentDTO.state !== 'CHECKIN_OVERDUE' && this.currentDTO.state !== 'REVOKED' && this.currentDTO.state !== 'DISABLED') {
+      throw new Error('INVALID_STATE: Cannot verify when license is not active or restricted.');
+    }
+
+    if (!this.coordinator || !this.currentDTO.licenseId) {
+       throw new Error('INTERNAL_ERROR: Check-in coordinator is unavailable.');
+    }
+
+    try {
+      const deviceKeyId = await this.identityProvider.getDeviceKeyId();
+      await this.coordinator.triggerCheckIn(this.currentDTO.licenseId, deviceKeyId);
+      
+      // Re-evaluate check-in state
+      return await this.recomputeState();
+    } catch (err: any) {
+      logger.error('LicensingRuntime: verifyNow failed - ' + err.message);
+      throw err;
     }
   }
 

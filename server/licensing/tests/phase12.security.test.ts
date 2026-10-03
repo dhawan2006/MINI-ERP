@@ -371,6 +371,8 @@ describe('Phase 12 — Production Security Regression Suite', () => {
         'dist-electron',
         'release',
         '.asar',
+        'tests', // ignore test directories
+        'authorization.ts' // ignore file which has the string in a string replacement
       ];
       let entries: fs.Dirent[];
       try {

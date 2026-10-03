@@ -57,12 +57,18 @@ const api: IpcApi = {
     getState: () => ipcRenderer.invoke('license:getState'),
     activate: (licenseKey) => ipcRenderer.invoke('license:activate', licenseKey),
     deactivate: () => ipcRenderer.invoke('license:deactivate'),
+    verifyNow: () => ipcRenderer.invoke('license:verifyNow'),
     onStateChanged: (callback) => {
       const handler = (_event: Electron.IpcRendererEvent, dto: any) => callback(dto);
       ipcRenderer.on('license:stateChanged', handler);
       // Return an unsubscribe function
       return () => ipcRenderer.removeListener('license:stateChanged', handler);
     },
+  },
+  setup: {
+    getState: () => ipcRenderer.invoke('setup:getState'),
+    saveStoreProfile: (shopName) => ipcRenderer.invoke('setup:saveStoreProfile', shopName),
+    complete: () => ipcRenderer.invoke('setup:complete'),
   },
 
 };

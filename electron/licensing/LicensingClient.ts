@@ -101,4 +101,50 @@ export class LicensingClient {
       throw new Error(`NETWORK_ERROR: ${err.message}`);
     }
   }
+
+  async getRuntimeCheckInChallenge(deviceKeyId: string, licenseId: string): Promise<any> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/runtime/checkin/challenge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+        body: JSON.stringify({ deviceKeyId, licenseId }),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP_${res.status}`);
+      }
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      throw new Error(`NETWORK_ERROR: ${err.message}`);
+    }
+  }
+
+  async performRuntimeCheckIn(
+    requestId: string,
+    licenseId: string,
+    deviceKeyId: string,
+    publicKey: string,
+    proof: ProofPayload
+  ): Promise<any> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/runtime/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+        body: JSON.stringify({ requestId, licenseId, deviceKeyId, publicKey, proof }),
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        throw new Error(`HTTP_${res.status}: ${errorText}`);
+      }
+      
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      if (err.message.startsWith('HTTP_')) {
+        throw err;
+      }
+      throw new Error(`NETWORK_ERROR: ${err.message}`);
+    }
+  }
 }

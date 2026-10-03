@@ -64,4 +64,29 @@ export class ServerAuthorizationSigner {
       signature: signatureBase64url
     };
   }
+
+  signRuntimeCheckin(payload: any): any {
+    const key = this.keyMap.get(payload.signingKeyId);
+    if (!key) {
+      throw new CryptoError('UNKNOWN_SIGNING_KEY', `Key ID ${payload.signingKeyId} is not registered`);
+    }
+
+    const canonicalBytes = Buffer.from(canonicalize(payload), 'utf8');
+    const domainSeparationTag = Buffer.from('MINIPOS-RUNTIME-CHECKIN-V1:', 'utf8');
+    const dataToSign = Buffer.concat([domainSeparationTag, canonicalBytes]);
+
+    let signatureBuffer: Buffer;
+    try {
+      signatureBuffer = crypto.sign(null, dataToSign, key);
+    } catch (err) {
+      throw new CryptoError('SIGNATURE_GENERATION_FAILED', 'Failed to generate cryptographic signature');
+    }
+
+    const signatureBase64url = signatureBuffer.toString('base64url');
+
+    return {
+      ...payload,
+      signature: signatureBase64url
+    };
+  }
 }

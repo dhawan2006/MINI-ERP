@@ -37,7 +37,9 @@ import { LicensingBillingGate } from './licensing/LicensingBillingGate';
 // Phase 9
 // Phase 9
 import { LicensingClient } from './licensing/LicensingClient';
-
+import { LocalRuntimeStateStore } from '../src/infrastructure/licensing/LocalRuntimeStateStore';
+import { RuntimeCheckinReceiptVerifier } from '../src/shared/crypto/RuntimeCheckinReceiptVerifier';
+import { RuntimeCheckInCoordinator } from './licensing/RuntimeCheckInCoordinator';
 declare const __PROD_LICENSING_SERVER_PUBLIC_KEY__: string | undefined;
 // Initialize logging and process-level crash handlers
 initLogger();
@@ -95,6 +97,10 @@ app.whenReady().then(async () => {
   const settingsService = new SettingsService(settingsRepo);
   const productService = new ProductService(productRepo);
 
+  // Setup Service (Phase B/C)
+  const { SetupService } = require('../src/application/use-cases/SetupService');
+  const setupService = new SetupService(settingsRepo, productRepo, settingsService);
+
   // Phase 8: BillingService is created now but the licensing gate is wired in
   // after licensingRuntime.initialize() below (licensing subsystem must be
   // initialized before the gate can be used).
@@ -108,6 +114,8 @@ app.whenReady().then(async () => {
   registerProductHandlers(productService);
   registerPrintingHandlers(printService);
   registerSettingsHandlers(settingsService, printService);
+  const { registerSetupHandlers } = require('./ipc/setup.handlers');
+  registerSetupHandlers(setupService);
 
   // 5. PDF Export Service
   // Font path: resolved relative to the electron/ directory so it works in
@@ -190,10 +198,17 @@ app.whenReady().then(async () => {
     // Licensing authority remains perfectly intact; no production bypass exists here.
   }
 
+  const runtimeStateStore = new LocalRuntimeStateStore(userDataPath);
+  const runtimeVerifier = new RuntimeCheckinReceiptVerifier();
+  if (SERVER_PUBLIC_KEY_PEM) {
+    runtimeVerifier.registerTrustedKey(SERVER_KEY_ID, SERVER_PUBLIC_KEY_PEM);
+  }
+
   const LICENSING_SERVER_URL = import.meta.env.VITE_LICENSING_SERVER_URL || process.env.LICENSING_SERVER_URL || 'http://localhost:3456';
   const licensingClient = new LicensingClient(LICENSING_SERVER_URL);
 
-  const licensingRuntime = new LicensingRuntimeService(licensingService, identityAdapter, licensingClient);
+  const checkInCoordinator = new RuntimeCheckInCoordinator(licensingClient, identityAdapter, runtimeStateStore, runtimeVerifier);
+  const licensingRuntime = new LicensingRuntimeService(licensingService, identityAdapter, licensingClient, checkInCoordinator);
   const licensingLifecycle = new LicensingLifecycleService(licensingClient, identityAdapter, authStore);
 
   // Initialize licensing BEFORE creating window — fail closed if anything throws.

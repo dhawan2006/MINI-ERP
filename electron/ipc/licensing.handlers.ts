@@ -150,6 +150,38 @@ export function registerLicensingHandlers(
     }
   );
 
+  /**
+   * license:verifyNow
+   * Initiates a manual check-in request.
+   */
+  ipcMain.handle(
+    'license:verifyNow',
+    async (_event: IpcMainInvokeEvent): Promise<IpcResponse<LicensingStatusDTO>> => {
+      try {
+        const dto = await runtimeService.verifyNow();
+        return { success: true, data: dto };
+      } catch (err: any) {
+        logger.error('LicensingIPC: verifyNow failed - ' + err?.message);
+        
+        let errorCode = 'CHECKIN_FAILED';
+        let errorMessage = 'Failed to verify license.';
+        
+        if (err.message.includes('NETWORK_FAILURE') || err.message.includes('fetch')) {
+          errorCode = 'NETWORK_ERROR';
+          errorMessage = 'Could not connect to the licensing server. Please check your internet connection.';
+        } else if (err.message.includes('INVALID_STATE')) {
+          errorCode = 'INVALID_STATE';
+          errorMessage = 'Cannot verify right now.';
+        }
+        
+        return {
+          success: false,
+          error: { code: errorCode, message: errorMessage }
+        };
+      }
+    }
+  );
+
   // NOTE: There is intentionally no 'license:setState' handler.
   // The renderer may only READ state; it cannot write it.
 }

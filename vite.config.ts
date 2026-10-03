@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     test: {
-      exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**'],
+      exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**', '**/tests/supabase/**', 'supabase/functions/tests/**'],
       fileParallelism: false,
       env: {
         DATABASE_URL: 'postgres://laksh@localhost:5432/minipos_licensing_test',

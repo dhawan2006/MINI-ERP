@@ -89,11 +89,20 @@ export type IpcApi = {
      */
     deactivate: () => Promise<IpcResponse<void>>;
     /**
+     * Phase 2B: Manual runtime check-in verify request.
+     */
+    verifyNow: () => Promise<IpcResponse<LicensingStatusDTO>>;
+    /**
      * Subscribe to state-change events pushed by Main.
      * Callback receives only the safe DTO — never raw authorization data.
      * Returns an unsubscribe function.
      */
     onStateChanged: (callback: (dto: LicensingStatusDTO) => void) => () => void;
+  };
+  setup: {
+    getState: () => Promise<IpcResponse<import('./setup-dto').SetupStateDTO>>;
+    saveStoreProfile: (shopName: string) => Promise<IpcResponse<import('./setup-dto').SetupStateDTO>>;
+    complete: () => Promise<IpcResponse<import('./setup-dto').SetupStateDTO>>;
   };
 };
 

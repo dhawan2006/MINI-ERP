@@ -30,5 +30,125 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--color-bg-app);
     color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  @keyframes ambient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .ambient-bg {
+    background: radial-gradient(circle at top left, rgba(238, 242, 255, 0.4) 0%, rgba(248, 250, 252, 0.1) 50%),
+                radial-gradient(circle at bottom right, rgba(224, 231, 255, 0.4) 0%, rgba(255, 255, 255, 0) 60%),
+                #fdfcfb;
+    background-size: 200% 200%;
+    animation: ambient-shift 25s ease-in-out infinite;
+  }
+
+  /* Reduce motion */
+  @media (prefers-reduced-motion: reduce) {
+    .ambient-bg {
+      animation: none;
+      background-position: 50% 50%;
+    }
+  }
+
+  /* View Transition classes */
+  .view-enter {
+    animation: view-enter 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  
+  .view-exit {
+    animation: view-exit 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes view-enter {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes view-exit {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+      filter: blur(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-16px);
+      filter: blur(4px);
+    }
+  }
+
+  /* Staggered entrance animations */
+  .stagger-1 { animation: fade-slide-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 50ms; opacity: 0; }
+  .stagger-2 { animation: fade-slide-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 150ms; opacity: 0; }
+  .stagger-3 { animation: fade-slide-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 250ms; opacity: 0; }
+  .stagger-4 { animation: fade-slide-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 350ms; opacity: 0; }
+  .stagger-5 { animation: fade-slide-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 450ms; opacity: 0; }
+  .stagger-6 { animation: fade-slide-up 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 550ms; opacity: 0; }
+  
+  .stagger-dev-signature {
+    animation: signature-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: 900ms;
+    opacity: 0;
+  }
+
+  @keyframes signature-enter {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fade-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Success animation */
+  .success-enter {
+    animation: success-enter 800ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes success-enter {
+    0% { opacity: 0; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .view-enter, .view-exit, .stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .success-enter {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
   }
 }

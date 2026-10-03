@@ -22,6 +22,7 @@ import { config } from './config/config';
 import { lifecycleRouter } from './routes/lifecycle';
 import { adminRouter } from './routes/admin';
 import { activationRouter } from './routes/activation';
+import { runtimeRouter } from './routes/runtime';
 
 const app = express();
 
@@ -131,6 +132,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/v1/activation', lifecycleLimiter, activationRouter);
 app.use('/api/v1/lifecycle', lifecycleLimiter, lifecycleRouter);
 app.use('/api/v1/admin', adminLimiter, adminRouter);
+app.use('/api/v1/runtime', lifecycleLimiter, runtimeRouter);
 
 // 404 for any unmatched routes — do not reveal routing structure
 app.use((_req, res) => {

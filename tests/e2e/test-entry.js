@@ -1,6 +1,6 @@
 process.env.MINIPOS_E2E_TEST = 'true';
 process.env.MINIPOS_E2E_TEST_DEVICE_KEY = 'test-device-id';
-process.env.LICENSING_SERVER_KEY_ID = 'test-key-1';
+process.env.LICENSING_SERVER_KEY_ID = 'prod-ed25519-2026-10-01';
 const crypto = require('crypto');
 const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
 process.env.LICENSING_SERVER_PUBLIC_KEY = publicKey.export({ type: 'spki', format: 'pem' });
@@ -20,6 +20,9 @@ app.on('will-finish-launching', () => {
   if (!userDataPath) {
     userDataPath = app.getPath('userData');
   }
+  if (process.env.SKIP_MOCK_LICENSE === 'true') {
+    return; // Do not mock active license for setup tests
+  }
   const authDir = path.join(userDataPath, 'licensing');
   fs.mkdirSync(authDir, { recursive: true });
   
@@ -32,10 +35,10 @@ app.on('will-finish-launching', () => {
     validFrom: "2020-01-01T00:00:00.000Z",
     validUntil: "2099-12-31T23:59:59.999Z",
     issuedAt: "2020-01-01T00:00:00.000Z",
-    signingKeyId: "test-key-1"
+    signingKeyId: "prod-ed25519-2026-10-01"
   };
 
-  const payloadString = '{"authorizationVersion":1,"deviceKeyId":"test-device-id","issuedAt":"2020-01-01T00:00:00.000Z","licenseId":"DEV-E2E-TEST","productId":"minipos-pro","protocolVersion":1,"signingKeyId":"test-key-1","validFrom":"2020-01-01T00:00:00.000Z","validUntil":"2099-12-31T23:59:59.999Z"}';
+  const payloadString = '{"authorizationVersion":1,"deviceKeyId":"test-device-id","issuedAt":"2020-01-01T00:00:00.000Z","licenseId":"DEV-E2E-TEST","productId":"minipos-pro","protocolVersion":1,"signingKeyId":"prod-ed25519-2026-10-01","validFrom":"2020-01-01T00:00:00.000Z","validUntil":"2099-12-31T23:59:59.999Z"}';
   const canonicalBytes = Buffer.from(payloadString, 'utf8');
   const domainSeparationTag = Buffer.from('MINIPOS-AUTHORIZATION-V1:', 'utf8');
   const dataToSign = Buffer.concat([domainSeparationTag, canonicalBytes]);

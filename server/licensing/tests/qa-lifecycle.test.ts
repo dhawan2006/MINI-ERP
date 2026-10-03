@@ -5,9 +5,10 @@ import crypto from 'crypto';
 import { canonicalize } from '../../../src/shared/crypto/canonicalize';
 
 const QA_SERVER_URL = process.env.LICENSING_SERVER_URL || 'http://localhost:3456';
-const QA_DB_URL = 'postgres://laksh@localhost:5432/minipos_licensing_qa';
+const QA_DB_URL = process.env.QA_DB_URL || (QA_SERVER_URL.includes('3456') ? 'postgres://laksh@localhost:5432/minipos_licensing_qa' : 'postgresql://postgres:postgres@127.0.0.1:54322/postgres');
 const QA_KEY = 'QA-LICENSE-001';
 const DEVICE_KEY_ID = 'qa-test-device-' + crypto.randomUUID();
+const HMAC_SECRET = process.env.QA_LICENSE_KEY_HMAC_SECRET || (QA_SERVER_URL.includes('3456') ? 'qa_hmac_secret_qa_hmac_secret_qa_hmac_secret_123' : 'test-hmac-secret-32-chars-min-must-be-long-enough!');
 
 describe('QA Local Licensing Lifecycle', () => {
   let dbClient: any;
@@ -21,6 +22,10 @@ describe('QA Local Licensing Lifecycle', () => {
   beforeAll(async () => {
     const pool = new Pool({ connectionString: QA_DB_URL });
     dbClient = await pool.connect();
+    await dbClient.query('DELETE FROM runtime_directive_deliveries');
+    await dbClient.query('DELETE FROM runtime_directives');
+    await dbClient.query('DELETE FROM runtime_checkins');
+    await dbClient.query('DELETE FROM runtime_checkin_requests');
     await dbClient.query('DELETE FROM license_bindings');
     await dbClient.query('DELETE FROM activation_requests');
     const keyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
@@ -32,8 +37,9 @@ describe('QA Local Licensing Lifecycle', () => {
     const rawPubKey = spkiDer.subarray(-65);
     rawPubKeyBase64url = rawPubKey.toString('base64url');
     
-    const hmacSecret = process.env.LICENSE_KEY_HMAC_SECRET || 'test-secret-key-32-bytes-long-12345';
-    const hmac = crypto.createHmac('sha256', hmacSecret).update(QA_KEY).digest('hex');
+    const hmacSecret = HMAC_SECRET;
+    const canonicalKey = QA_KEY.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const hmac = crypto.createHmac('sha256', hmacSecret).update(canonicalKey).digest('hex');
     await dbClient.query(`
       INSERT INTO licenses (id, license_key_hmac, product_id, valid_from, valid_until, max_devices, status) 
       VALUES ($1, $2, 'PROD_1', NOW(), NOW() + interval '1 year', 5, 'ACTIVE') 
@@ -199,9 +205,10 @@ describe('QA Local Licensing Lifecycle', () => {
     expect(wrongRes.status).toBe(401);
 
     // Valid token
+    const adminToken = process.env.QA_ADMIN_API_TOKEN || (QA_SERVER_URL.includes('3456') ? 'qa_admin_token_qa_admin_token_qa_admin_token_123' : '12345678901234567890123456789012');
     const rightRes = await request(QA_SERVER_URL)
       .post('/api/v1/admin/lifecycle/release-binding')
-      .set('Authorization', 'Bearer qa_admin_token_qa_admin_token_qa_admin_token_123')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({
         licenseId,
         deviceKeyId: DEVICE_KEY_ID,

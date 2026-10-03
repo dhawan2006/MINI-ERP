@@ -54,6 +54,8 @@ test.describe.serial('Stage 9 Billing UI (Cashier Tasks A-I)', () => {
     await page.evaluate(async () => {
       // @ts-ignore
       await window.api.billing.clear();
+      // @ts-ignore
+      await window.api.setup.complete(); // Skip setup for billing tests
     });
     // Reload page to reset state
     await page.reload();

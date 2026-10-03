@@ -11,6 +11,7 @@ export interface LicensingState {
   activate: (licenseKey: string) => Promise<void>;
   setStatus: (dto: LicensingStatusDTO) => void;
   clearError: () => void;
+  verifyNow: () => Promise<void>;
 }
 
 export const useLicensingStore = create<LicensingState>((set) => ({
@@ -20,15 +21,19 @@ export const useLicensingStore = create<LicensingState>((set) => ({
   isActivating: false,
 
   fetchStatus: async () => {
+    console.log('[DEBUG] fetchStatus called');
     try {
       const response = await window.api.licensing.getState();
       if (response.success && response.data) {
+        console.log("LIC: DONE"); console.log('[DEBUG] fetchStatus DONE SUCCESS');
         set({ status: response.data, isInitializing: false });
       } else {
+        console.log('[DEBUG] fetchStatus DONE ERROR');
         set({ status: { state: 'STORAGE_ERROR' }, isInitializing: false });
       }
     } catch (err: any) {
-      set({ status: { state: 'STORAGE_ERROR' }, isInitializing: false });
+      console.log('[DEBUG] fetchStatus DONE ERROR');
+        set({ status: { state: 'STORAGE_ERROR' }, isInitializing: false });
     }
   },
 
@@ -54,6 +59,16 @@ export const useLicensingStore = create<LicensingState>((set) => ({
 
   setStatus: (dto: LicensingStatusDTO) => set({ status: dto, isInitializing: false }),
   clearError: () => set({ activationError: null }),
+  verifyNow: async () => {
+    try {
+      const response = await window.api.licensing.verifyNow();
+      if (response.success && response.data) {
+        set({ status: response.data });
+      }
+    } catch (err) {
+      console.error('Failed to verify license:', err);
+    }
+  },
 }));
 
 // Setup listener

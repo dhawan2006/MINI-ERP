@@ -1,0 +1,12 @@
+{
+  "protocolVersion": 1,
+  "authorizationVersion": 1,
+  "licenseId": "DEV-E2E-TEST",
+  "productId": "minipos-pro",
+  "deviceKeyId": "test-device-id",
+  "validFrom": "2020-01-01T00:00:00.000Z",
+  "validUntil": "2099-12-31T23:59:59.999Z",
+  "issuedAt": "2020-01-01T00:00:00.000Z",
+  "signingKeyId": "test-key-1",
+  "signature": "m17jxQon39jSxiZciNpE-1MLyMRVXcEdrW-WTvAWLwyWBNvH-wfJtdzJ5rIdCFfSbJK-6_Zt4jtqI-7GCqLGCw"
+}

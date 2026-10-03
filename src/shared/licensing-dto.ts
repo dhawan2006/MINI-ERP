@@ -26,27 +26,45 @@ export type LicensingRuntimeState =
   | 'DEVICE_MISMATCH'        // Authorization belongs to a different cryptographic device identity.
   | 'CLOCK_ANOMALY'          // System clock indicates an impossible time relationship.
   | 'DEVICE_IDENTITY_UNAVAILABLE' // Native Secure Enclave / identity helper is not accessible.
-  | 'STORAGE_ERROR';         // Licensing persistence layer is inaccessible or fatally corrupt.
+  | 'STORAGE_ERROR'          // Licensing persistence layer is inaccessible or fatally corrupt.
+  | 'REVOKED'                // Check-in indicates the license is permanently revoked.
+  | 'DISABLED'               // Check-in indicates the license is temporarily disabled.
+  | 'CHECKIN_OVERDUE';       // Check-in deadline exceeded; billing blocked.
+
+export type RuntimeCheckInWarningState =
+  | 'CURRENT'
+  | 'DUE_SOON' // < 48h
+  | 'REQUIRED' // < 6h
+  | 'OVERDUE'; // deadline reached
 
 /**
  * Safe, renderer-facing representation of the licensing runtime state.
  *
- * Fields present only when state === 'ACTIVE'.
+ * Fields present only when state === 'ACTIVE' or 'CHECKIN_OVERDUE'.
  * licenseId and validUntil are display-safe (no cryptographic secrets).
  */
 export interface LicensingStatusDTO {
   /** The authoritative runtime state. */
   state: LicensingRuntimeState;
-  /** Present when ACTIVE. Derived from the signed payload. Display-only. */
+  /** Present when ACTIVE or CHECKIN_OVERDUE. Derived from the signed payload. Display-only. */
   licenseId?: string;
-  /** ISO-8601 UTC. Present when ACTIVE. */
+  /** ISO-8601 UTC. Present when ACTIVE or CHECKIN_OVERDUE. */
   validFrom?: string;
-  /** ISO-8601 UTC. Present when ACTIVE or EXPIRED (to show when it expired). */
+  /** ISO-8601 UTC. Present when ACTIVE, EXPIRED, or CHECKIN_OVERDUE. */
   validUntil?: string;
   /**
    * Display-safe abbreviated device key identifier.
    * Only the first 16 hex chars of the full deviceKeyId are exposed.
-   * Present when ACTIVE.
+   * Present when ACTIVE or CHECKIN_OVERDUE.
    */
   deviceKeyIdPrefix?: string;
+
+  /** V1 Check-In specific properties (only present if policyVersion > 0) */
+  policyVersion?: number;
+  /** ISO-8601 UTC when the check-in receipt expires */
+  checkInValidUntil?: string;
+  /** Current check-in warning state */
+  checkInState?: RuntimeCheckInWarningState;
+  /** Number of pending unacknowledged directives */
+  pendingDirectivesCount?: number;
 }

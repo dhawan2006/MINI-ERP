@@ -1,6 +1,6 @@
 {
   "description": "Phase 12 cross-impl authorization verification vector",
-  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAaZL+myg8/82SLQ07elJypTaowcSBR27eAowNTVsuwKg=\n-----END PUBLIC KEY-----\n",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAwWjXY0v791NILau+p/ADCCVQ6v5mRv7bHxwPKT5k6HQ=\n-----END PUBLIC KEY-----\n",
   "signedAuthorization": {
     "protocolVersion": 1,
     "authorizationVersion": 1,
@@ -11,6 +11,6 @@
     "validUntil": "2027-01-01T00:00:00.000Z",
     "issuedAt": "2026-01-01T00:00:00.000Z",
     "signingKeyId": "p12-fixture-key",
-    "signature": "Zsy21kIV1MTe0QmOMFJGaxxzEtXHEsbWR6RLkXXTY2X6MnRjz2-gH8cjVrjKZeG0mbdX1J_7gx2nzhzwE5VWAw"
+    "signature": "SAa09BD8wRlVXR8EP91SYbrO2cVikR4Z0J7TgezHaSZRGyxBW9dRGBFn7IHRkvLrDYJ-i1I3RRrWFwmCV86aAA"
   }
 }
