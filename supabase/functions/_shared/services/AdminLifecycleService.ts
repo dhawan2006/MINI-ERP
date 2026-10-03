@@ -123,4 +123,75 @@ export class AdminLifecycleService {
       adminId
     );
   }
+
+  static async disableLicense(
+    tx: Sql,
+    adminId: string,
+    licenseId: string,
+    reason: string
+  ): Promise<void> {
+    const res = await tx`
+      SELECT status FROM licenses WHERE id = ${licenseId} FOR UPDATE
+    `;
+    
+    if (res.length === 0) {
+      throw new AdminLifecycleError('LICENSE_NOT_FOUND', 'License not found');
+    }
+
+    const license = res[0];
+    if (license.status === 'DISABLED') {
+      throw new AdminLifecycleError('ALREADY_DISABLED', 'License is already disabled');
+    }
+
+    await tx`
+      UPDATE licenses SET status = 'DISABLED' WHERE id = ${licenseId}
+    `;
+
+    // Also deactivate bindings? Typically yes for disabled.
+    await tx`
+      UPDATE license_bindings SET status = 'DEACTIVATED', deactivated_at = NOW() WHERE license_id = ${licenseId} AND status = 'ACTIVE'
+    `;
+
+    await AuditService.recordEvent(
+      tx,
+      'ADMIN_DISABLE_LICENSE',
+      { reason },
+      licenseId,
+      undefined,
+      undefined,
+      adminId
+    );
+  }
+
+  static async extendLicense(
+    tx: Sql,
+    adminId: string,
+    licenseId: string,
+    newValidUntil: string,
+    reason: string
+  ): Promise<void> {
+    const res = await tx`
+      SELECT status, valid_until FROM licenses WHERE id = ${licenseId} FOR UPDATE
+    `;
+    
+    if (res.length === 0) {
+      throw new AdminLifecycleError('LICENSE_NOT_FOUND', 'License not found');
+    }
+
+    const license = res[0];
+    
+    await tx`
+      UPDATE licenses SET valid_until = ${newValidUntil} WHERE id = ${licenseId}
+    `;
+
+    await AuditService.recordEvent(
+      tx,
+      'ADMIN_EXTEND_LICENSE',
+      { reason, oldValidUntil: license.valid_until, newValidUntil },
+      licenseId,
+      undefined,
+      undefined,
+      adminId
+    );
+  }
 }

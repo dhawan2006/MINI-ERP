@@ -206,6 +206,32 @@ router.add('POST', '/lifecycle/restore-license', { roles: ['OWNER', 'ADMIN', 'SY
   return new Response(JSON.stringify({ status: 'SUCCESS' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 });
 
+router.add('POST', '/lifecycle/disable-license', { roles: ['OWNER', 'ADMIN', 'SYSTEM'], requireMfa: true }, async (req) => {
+  const auth = (req as any).adminAuth;
+  const body = await req.json();
+  const sql = getDb();
+  const { licenseId, reason } = body;
+  if (!licenseId || !reason) throw new Error('INVALID_REQUEST');
+  
+  await sql.begin(async (tx) => {
+    await AdminLifecycleService.disableLicense(tx, auth.adminId, licenseId, reason);
+  });
+  return new Response(JSON.stringify({ status: 'SUCCESS' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+});
+
+router.add('POST', '/lifecycle/extend-license', { roles: ['OWNER', 'ADMIN', 'SYSTEM'], requireMfa: true }, async (req) => {
+  const auth = (req as any).adminAuth;
+  const body = await req.json();
+  const sql = getDb();
+  const { licenseId, valid_until, reason } = body;
+  if (!licenseId || !valid_until || !reason) throw new Error('INVALID_REQUEST');
+  
+  await sql.begin(async (tx) => {
+    await AdminLifecycleService.extendLicense(tx, auth.adminId, licenseId, valid_until, reason);
+  });
+  return new Response(JSON.stringify({ status: 'SUCCESS' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+});
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
