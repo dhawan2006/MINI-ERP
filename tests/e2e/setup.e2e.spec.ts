@@ -1,7 +1,7 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as path from 'path';
 
-test.describe.serial('First Launch Setup E2E', () => {
+test.describe.serial('First Launch Setup E2E (Standalone Mode)', () => {
   let app: any;
   let page: any;
   let db: any;
@@ -17,12 +17,11 @@ test.describe.serial('First Launch Setup E2E', () => {
     }
   });
 
-  test('Fresh app opens Welcome, validates store name, and completes setup', async () => {
+  test('Fresh app opens Welcome, validates store name, and completes setup directly without activation', async () => {
     test.setTimeout(60000);
     // Launch app
     app = await electron.launch({ 
-      args: ['tests/e2e/test-entry.js'],
-      env: { ...process.env, SKIP_MOCK_LICENSE: 'true' }
+      args: ['tests/e2e/test-entry.js']
     });
     page = await app.firstWindow();
 
@@ -31,9 +30,6 @@ test.describe.serial('First Launch Setup E2E', () => {
     const Database = require('better-sqlite3');
     db = new Database(path.join(userDataPath, 'mini-erp-data', 'billing.db'));
     db.exec('DELETE FROM settings; DELETE FROM products;'); // Ensure no existing install heuristic triggers
-    
-    const fs = require('fs');
-    try { fs.unlinkSync(path.join(userDataPath, 'licensing', 'authorization.json')); } catch(e) {}
 
     // Reload to apply fresh state
     await page.reload();
@@ -59,30 +55,19 @@ test.describe.serial('First Launch Setup E2E', () => {
     
     await continueBtn.click();
 
-    // 3. Activation Screen (wrapped in SetupActivationScreen)
-    await expect(page.getByRole('heading', { name: 'Almost ready' })).toBeVisible();
-    await expect(page.getByText('Activate Mini POS to start billing.')).toBeVisible();
-
-    // Restart app without SKIP_MOCK_LICENSE to mock the activation
-    const currentUserDataPath = await app.evaluate(({ app }: any) => app.getPath('userData'));
-    await app.close();
-    app = await electron.launch({ 
-      args: ['tests/e2e/test-entry.js', `--user-data-dir=${currentUserDataPath}`] 
-    });
-    page = await app.firstWindow();
-
-    // The status is ACTIVE, so it should jump to Complete Screen
+    // 3. Complete Setup directly (No license activation screen!)
     await expect(page.getByRole('heading', { name: 'You\'re all set.' })).toBeVisible();
+    await expect(page.getByText('Activate Mini POS to start billing.')).toBeHidden();
 
-    // 4. Complete Setup
+    // 4. Complete Setup and enter POS
     await page.getByRole('button', { name: 'Open Mini POS' }).click();
 
-    // 5. Normal POS starts
+    // 5. Normal POS starts immediately
     const input = page.getByPlaceholder('Scan a barcode or type a product name...');
     await expect(input).toBeVisible();
   });
 
-  test('Restarting after completion skips onboarding', async () => {
+  test('Restarting after completion skips onboarding directly into POS', async () => {
     app = await electron.launch({ args: ['tests/e2e/test-entry.js'] });
     page = await app.firstWindow();
 

@@ -27,7 +27,7 @@ export function Login() {
     <div className="login-container">
       <div className="login-card glass-panel">
         <h1>Admin Portal</h1>
-        <p>Sign in to manage licenses and devices</p>
+        <p>Sign in to manage customers and administrative settings</p>
         
         {error && (
           <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.875rem' }}>

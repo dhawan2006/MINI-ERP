@@ -20,10 +20,23 @@ test.describe('Safe Database Restore', () => {
     }
     fs.mkdirSync(testBackupsDir, { recursive: true });
 
+    // Create initial DB marked as setup completed
+    const initialDbDir = path.join(userDataPath, 'mini-erp-data');
+    fs.mkdirSync(initialDbDir, { recursive: true });
+    const initialDb = new Database(path.join(initialDbDir, 'billing.db'));
+    runMigrations(initialDb);
+    const now = Date.now();
+    initialDb.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('app_setup', '{"status":"COMPLETED"}', ?)`).run(now);
+    initialDb.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('app_settings', '{"store":{"shopName":"Original Shop Name"}}', ?)`).run(now);
+    initialDb.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('store.shopName', '"Original Shop Name"', ?)`).run(now);
+    initialDb.close();
+
     // Create a valid backup that FakeDialogService will select
     const db = new Database(mockRestorePath);
     runMigrations(db);
-    db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('store.shopName', '"Restored Shop Name"', ?)`).run(Date.now());
+    db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('app_setup', '{"status":"COMPLETED"}', ?)`).run(now);
+    db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('app_settings', '{"store":{"shopName":"Restored Shop Name"}}', ?)`).run(now);
+    db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('store.shopName', '"Restored Shop Name"', ?)`).run(now);
     db.close();
 
     electronApp = await electron.launch({
@@ -63,6 +76,7 @@ test.describe('Safe Database Restore', () => {
     // 2. Go to Settings and try to restore
     await window.locator('button:has-text("Settings")').click();
     await window.waitForTimeout(1000); // Give settings a moment to load
+    await window.getByTestId('settings-tab-data').click();
     await window.locator('button:has-text("Restore Database")').click();
     
     // File is selected automatically by FakeDialogService, which triggers validation and reveals the modal
@@ -85,6 +99,7 @@ test.describe('Safe Database Restore', () => {
     await expect(shopNameInput).not.toHaveValue('Restored Shop Name');
 
     // Restore
+    await window.getByTestId('settings-tab-data').click();
     await window.locator('button:has-text("Restore Database")').click();
     
     await expect(window.locator('text=Warning: Destructive Operation')).toBeVisible();

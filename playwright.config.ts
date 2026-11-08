@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
+delete process.env.ELECTRON_RUN_AS_NODE;
 process.env.MINIPOS_E2E_TEST = 'true';
 
 export default defineConfig({

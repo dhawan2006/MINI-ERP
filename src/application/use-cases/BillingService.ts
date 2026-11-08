@@ -6,7 +6,6 @@ import { SettingsService } from './SettingsService';
 import { ProductNotFoundError } from '../../domain/errors';
 import { FinalizedBillDTO } from '../../shared/dto';
 import { ReceiptMapper } from '../mappers/ReceiptMapper';
-import { IBillingAuthorization } from '../interfaces/IBillingAuthorization';
 
 export class BillingService {
   private activeBill: ActiveBill;
@@ -16,17 +15,7 @@ export class BillingService {
     private readonly productRepo: ProductRepository,
     private readonly draftRepo: DraftRepository,
     private readonly billRepo: IBillRepository,
-    private readonly settingsService: SettingsService,
-    /**
-     * Phase 8: authorization gate.
-     * If undefined, the service operates in an "always allowed" mode for
-     * backwards-compatible test fixtures that pre-date Phase 8 and do not
-     * need licensing enforcement.
-     *
-     * In ALL production code, this MUST be provided.
-     * SEC-BILL-001: Only Main-process authorization can permit finalization.
-     */
-    private billingAuth?: IBillingAuthorization
+    private readonly settingsService: SettingsService
   ) {
     this.activeBill = new ActiveBill();
   }
@@ -41,15 +30,6 @@ export class BillingService {
     } else {
       this.activeBill = new ActiveBill();
     }
-  }
-
-  /**
-   * Phase 8: late-wire the billing authorization gate.
-   * Called from Main after LicensingRuntimeService.initialize() completes.
-   * Once set, assertBillingPermitted() is called on every finalizeBill().
-   */
-  setBillingAuth(gate: IBillingAuthorization): void {
-    this.billingAuth = gate;
   }
 
   private saveState(): void {
@@ -114,14 +94,6 @@ export class BillingService {
   }
 
   finalizeBill(): FinalizedBillDTO {
-    // Phase 8: Authorization gate — MUST execute before any domain or DB mutation.
-    // If denied, BillingNotAuthorizedError is thrown synchronously.
-    // The active draft remains untouched. No bill number is consumed.
-    // SEC-BILL-001, SEC-BILL-009, SEC-BILL-010, SEC-BILL-011
-    if (this.billingAuth) {
-      this.billingAuth.assertBillingPermitted();
-    }
-
     // 1. Domain Validation
     this.activeBill.validateForFinalization();
 
@@ -129,7 +101,7 @@ export class BillingService {
     const storeConfig = this.settingsService.getStoreConfig();
     const persistedBill = this.billRepo.persistFinalizedBill(this.activeBill, storeConfig, this.draftId);
 
-    // 3. Clear memory state (only reached if authorization and DB commit succeeded)
+    // 3. Clear memory state (only reached if DB commit succeeded)
     this.activeBill = new ActiveBill();
 
     return {

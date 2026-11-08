@@ -82,7 +82,9 @@ export class Router {
                 });
               }
               if (prev.status === 'COMPLETED') {
-                return new Response(JSON.stringify(prev.response_body), {
+                const isJson = typeof prev.response_body === 'string' && (prev.response_body.startsWith('{') || prev.response_body.startsWith('['));
+                const bodyStr = typeof prev.response_body === 'string' ? prev.response_body : JSON.stringify(prev.response_body);
+                return new Response(bodyStr, {
                   status: prev.response_status,
                   headers: { 'Content-Type': 'application/json' }
                 });

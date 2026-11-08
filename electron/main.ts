@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, powerMonitor } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { initLogger, logger } from '../src/infrastructure/logging/logger';
 import { initDatabase } from '../src/infrastructure/database/connection';
@@ -24,23 +24,7 @@ import { RestoreService } from '../src/infrastructure/services/RestoreService';
 import { registerRestoreHandlers } from './ipc/restore.handlers';
 import { ElectronDialogService } from './services/ElectronDialogService';
 import { FakeDialogService } from './services/FakeDialogService';
-// Licensing — Phase 7
-import { NativeDeviceIdentityAdapter } from './native/NativeDeviceIdentityAdapter';
-import { LocalAuthorizationStore } from '../src/infrastructure/licensing/LocalAuthorizationStore';
-import { AuthorizationVerifier } from '../src/shared/crypto/AuthorizationVerifier';
-import { LicensingService } from '../src/application/use-cases/LicensingService';
-import { LicensingRuntimeService } from './licensing/LicensingRuntimeService';
-import { LicensingLifecycleService } from "./licensing/LicensingLifecycleService";
-import { registerLicensingHandlers } from './ipc/licensing.handlers';
-// Phase 8
-import { LicensingBillingGate } from './licensing/LicensingBillingGate';
-// Phase 9
-// Phase 9
-import { LicensingClient } from './licensing/LicensingClient';
-import { LocalRuntimeStateStore } from '../src/infrastructure/licensing/LocalRuntimeStateStore';
-import { RuntimeCheckinReceiptVerifier } from '../src/shared/crypto/RuntimeCheckinReceiptVerifier';
-import { RuntimeCheckInCoordinator } from './licensing/RuntimeCheckInCoordinator';
-declare const __PROD_LICENSING_SERVER_PUBLIC_KEY__: string | undefined;
+
 // Initialize logging and process-level crash handlers
 initLogger();
 logger.info('Application starting...');
@@ -85,8 +69,6 @@ app.whenReady().then(async () => {
   const db = initDatabase(userDataPath);
   logger.info(`Database initialized at ${userDataPath}`);
 
-
-
   // 2. Instantiate Repositories
   const productRepo = new ProductRepository(db);
   const draftRepo = new DraftRepository(db);
@@ -97,13 +79,11 @@ app.whenReady().then(async () => {
   const settingsService = new SettingsService(settingsRepo);
   const productService = new ProductService(productRepo);
 
-  // Setup Service (Phase B/C)
+  // Setup Service
   const { SetupService } = require('../src/application/use-cases/SetupService');
   const setupService = new SetupService(settingsRepo, productRepo, settingsService);
 
-  // Phase 8: BillingService is created now but the licensing gate is wired in
-  // after licensingRuntime.initialize() below (licensing subsystem must be
-  // initialized before the gate can be used).
+  // BillingService — operates in standalone desktop mode
   const billingService = new BillingService('terminal-1-draft', productRepo, draftRepo, billRepo, settingsService);
 
   const printerConfig = settingsService.getPrinterConfig();
@@ -118,12 +98,10 @@ app.whenReady().then(async () => {
   registerSetupHandlers(setupService);
 
   // 5. PDF Export Service
-  // Font path: resolved relative to the electron/ directory so it works in
-  // both development (project root) and packaged builds.
   const fontPath = path.join(app.getAppPath(), 'assets', 'fonts', 'NotoSans-Regular.ttf');
   const pdfPaperWidth: 58 | 80 = (printerConfig.paperWidth === 58 || printerConfig.paperWidth === 80)
     ? printerConfig.paperWidth
-    : 80; // safe default when printer not configured
+    : 80;
   const pdfExportService = new PdfExportService(billRepo, {
     paperWidth: pdfPaperWidth,
     fontPath,
@@ -134,7 +112,7 @@ app.whenReady().then(async () => {
   const historyService = new HistoryService(billRepo);
   registerHistoryHandlers(historyService);
 
-  // 7. Backup Service
+  // 7. Backup / Restore Services
   const backupService = BackupService.getInstance();
   const restoreService = RestoreService.getInstance();
 
@@ -142,107 +120,13 @@ app.whenReady().then(async () => {
     ? new FakeDialogService()
     : new ElectronDialogService();
 
-
   registerBackupHandlers(backupService, dialogService);
   registerRestoreHandlers(restoreService, dialogService, billingService);
 
-
-
-  // Initialize printing hardware listeners internally (wait until UI requests it to send it, but warm up the app layer)
+  // Initialize draft state
   billingService.loadActiveDraft();
 
-
-  // === LICENSING SUBSYSTEM (Phase 7) ===
-  // Must initialize BEFORE the BrowserWindow is created.
-  // This guarantees the renderer never starts in an ambiguous state.
-  // SEC-RT-003: IPC failure during startup cannot produce ACTIVE.
-  const isTestMode = !app.isPackaged && process.env.MINIPOS_E2E_TEST === 'true';
-
-  let identityAdapter;
-  if (isTestMode) {
-    const { FakeDeviceIdentityProvider } = await import('./native/FakeDeviceIdentityProvider');
-    identityAdapter = new FakeDeviceIdentityProvider();
-  } else {
-    identityAdapter = new NativeDeviceIdentityAdapter();
-  }
-
-  // SEC-RT-XXX: Identity provider must be explicitly initialized before use
-  await identityAdapter.initialize();
-
-  // The AuthorizationVerifier must be loaded with the trusted server public key(s).
-  // In production, the key is embedded in the application bundle.
-  // In testing/development, it starts empty (no keys registered → all verification fails → NOT_ACTIVATED).
-  const authVerifier = new AuthorizationVerifier();
-  
-  let SERVER_PUBLIC_KEY_PEM = (typeof __PROD_LICENSING_SERVER_PUBLIC_KEY__ !== 'undefined' && __PROD_LICENSING_SERVER_PUBLIC_KEY__ !== '') 
-    ? __PROD_LICENSING_SERVER_PUBLIC_KEY__ 
-    : undefined;
-
-  if (!app.isPackaged) {
-    SERVER_PUBLIC_KEY_PEM = process.env.LICENSING_SERVER_PUBLIC_KEY || import.meta.env.VITE_LICENSING_SERVER_PUBLIC_KEY || SERVER_PUBLIC_KEY_PEM;
-  }
-
-  const SERVER_KEY_ID = import.meta.env.VITE_LICENSING_SERVER_KEY_ID || process.env.LICENSING_SERVER_KEY_ID || 'qa-key-1';
-  if (SERVER_PUBLIC_KEY_PEM) {
-    authVerifier.registerTrustedKey(SERVER_KEY_ID, SERVER_PUBLIC_KEY_PEM);
-    logger.info('LicensingRuntime: Server public key loaded.');
-  } else {
-    logger.warn('LicensingRuntime: No server public key configured. All authorizations will fail verification.');
-  }
-
-  const authStore = new LocalAuthorizationStore(userDataPath);
-  const licensingService = new LicensingService(authStore, authVerifier, identityAdapter);
-
-  if (isTestMode) {
-    // E2E tests now use a valid test authorization.json seeded via test-entry.js.
-    // Licensing authority remains perfectly intact; no production bypass exists here.
-  }
-
-  const runtimeStateStore = new LocalRuntimeStateStore(userDataPath);
-  const runtimeVerifier = new RuntimeCheckinReceiptVerifier();
-  if (SERVER_PUBLIC_KEY_PEM) {
-    runtimeVerifier.registerTrustedKey(SERVER_KEY_ID, SERVER_PUBLIC_KEY_PEM);
-  }
-
-  const LICENSING_SERVER_URL = import.meta.env.VITE_LICENSING_SERVER_URL || process.env.LICENSING_SERVER_URL || 'http://localhost:3456';
-  const licensingClient = new LicensingClient(LICENSING_SERVER_URL);
-
-  const checkInCoordinator = new RuntimeCheckInCoordinator(licensingClient, identityAdapter, runtimeStateStore, runtimeVerifier);
-  const licensingRuntime = new LicensingRuntimeService(licensingService, identityAdapter, licensingClient, checkInCoordinator);
-  const licensingLifecycle = new LicensingLifecycleService(licensingClient, identityAdapter, authStore);
-
-  // Initialize licensing BEFORE creating window — fail closed if anything throws.
-  await licensingRuntime.initialize();
-  logger.info('LicensingRuntime: Initialization complete.');
-
-  // Phase 8: Wire the billing enforcement gate now that the runtime is live.
-  // BillingService.finalizeBill() will call gate.assertBillingPermitted() on
-  // every finalization attempt. The decision is derived fresh each time.
-  // SEC-BILL-001: Only Main-process authorization can permit finalization.
-  const billingGate = new LicensingBillingGate(licensingRuntime);
-  billingService.setBillingAuth(billingGate);
-  logger.info('LicensingRuntime: Billing enforcement gate armed.');
-
-  // Register narrow IPC: renderer can only getState(), never set it.
-  registerLicensingHandlers(licensingRuntime, licensingLifecycle);
-
-  // Resume-from-sleep hook: recompute authorization when machine wakes.
-  // No network call — purely local re-evaluation (SEC-RT-009).
-  powerMonitor.on('resume', async () => {
-    logger.info('LicensingRuntime: System resume detected. Revalidating authorization...');
-    await licensingRuntime.refreshAfterResume();
-  });
-
-  // Cleanup on quit
-  app.on('will-quit', () => {
-    licensingRuntime.dispose();
-    if (!isTestMode && 'dispose' in identityAdapter) {
-      (identityAdapter as NativeDeviceIdentityAdapter).dispose();
-    }
-  });
-  // === END LICENSING SUBSYSTEM ===
-
-  // Create Window
+  // Create the main application window
   createWindow();
 
   app.on('activate', () => {
@@ -251,7 +135,7 @@ app.whenReady().then(async () => {
     }
   });
 
-  // Setup primitive IPC handlers
+  // System IPC handlers
   ipcMain.handle('system:ping', () => 'pong from main process');
 
   ipcMain.handle('system:factoryReset', async () => {
@@ -270,7 +154,7 @@ app.whenReady().then(async () => {
       setTimeout(() => {
         app.relaunch();
         app.quit();
-      }, 500); // Small delay to allow IPC response to return
+      }, 500);
 
       return { success: true };
     } catch (error: any) {

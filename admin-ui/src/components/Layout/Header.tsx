@@ -1,22 +1,22 @@
 import { useAuthStore } from '../../store/authStore';
-import { supabase } from '../../supabase';
 import { LogOut } from 'lucide-react';
 
 export function Header() {
-  const session = useAuthStore(state => state.session);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  const { session, context, logout } = useAuthStore();
 
   return (
     <header className="top-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          {session?.user.email}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
+          <span style={{ color: 'var(--text-primary)', fontSize: '0.875rem', fontWeight: 600 }}>
+            {session?.user.email}
+          </span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+            {context?.role || 'Admin'}
+          </span>
+        </div>
         <button 
-          onClick={handleLogout}
+          onClick={logout}
           style={{ 
             background: 'transparent', 
             border: 'none', 
@@ -38,3 +38,5 @@ export function Header() {
     </header>
   );
 }
+
+

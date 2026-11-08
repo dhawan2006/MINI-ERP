@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { ShieldCheck, Users, Key, MonitorSmartphone, Activity, Settings, LayoutDashboard } from 'lucide-react';
+import { ShieldCheck, Users, Activity, Settings, LayoutDashboard } from 'lucide-react';
 
 export function Sidebar() {
   return (
@@ -16,14 +16,6 @@ export function Sidebar() {
         <NavLink to="/customers" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           <Users size={20} />
           Customers
-        </NavLink>
-        <NavLink to="/licenses" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Key size={20} />
-          Licenses
-        </NavLink>
-        <NavLink to="/devices" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <MonitorSmartphone size={20} />
-          Devices
         </NavLink>
         <NavLink to="/audit" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           <Activity size={20} />

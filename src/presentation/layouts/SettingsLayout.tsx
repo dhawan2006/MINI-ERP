@@ -3,12 +3,9 @@ import { useNavigationStore } from '../../application/state/navigationStore';
 import { useSettingsStore } from '../../application/state/settingsStore';
 import { AppSettingsDTO, PrinterConfig, StoreConfigDTO } from '../../shared/dto';
 import { Input } from '../components/ui/Input';
-import { useLicensingStore } from '../../application/state/licensingStore';
-
 export const SettingsLayout: React.FC = () => {
   const navigateTo = useNavigationStore(state => state.navigateTo);
   const { settings, isLoading, error, loadSettings, updateSettings, testPrint } = useSettingsStore();
-  const licensingStatus = useLicensingStore(state => state.status);
 
   const [localSettings, setLocalSettings] = useState<AppSettingsDTO | null>(null);
   const [testPrintError, setTestPrintError] = useState<string | null>(null);
@@ -29,16 +26,11 @@ export const SettingsLayout: React.FC = () => {
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [showResetUI, setShowResetUI] = useState(false);
 
-  const [isDeactivating, setIsDeactivating] = useState(false);
-  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
-  const [deactivateError, setDeactivateError] = useState<string | null>(null);
-
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [activeSection, setActiveSection] = useState<'general' | 'printer' | 'licensing' | 'data' | 'about'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'printer' | 'data' | 'about'>('general');
   
   const generalRef = useRef<HTMLDivElement>(null);
   const printerRef = useRef<HTMLDivElement>(null);
-  const licensingRef = useRef<HTMLDivElement>(null);
   const dataRef    = useRef<HTMLDivElement>(null);
   const aboutRef   = useRef<HTMLDivElement>(null);
 
@@ -56,12 +48,11 @@ export const SettingsLayout: React.FC = () => {
 
 
 
-  const scrollToSection = (section: 'general' | 'printer' | 'licensing' | 'data' | 'about') => {
+  const scrollToSection = (section: 'general' | 'printer' | 'data' | 'about') => {
     setActiveSection(section);
     let ref: React.RefObject<HTMLDivElement | null> | undefined;
     if (section === 'general') ref = generalRef;
     if (section === 'printer') ref = printerRef;
-    if (section === 'licensing') ref = licensingRef;
     if (section === 'data')    ref = dataRef;
     if (section === 'about')   ref = aboutRef;
     if (ref?.current) {
@@ -175,31 +166,6 @@ export const SettingsLayout: React.FC = () => {
     }
   };
 
-  const handleDeactivate = async () => {
-    setIsDeactivating(true);
-    setDeactivateError(null);
-    try {
-      const draftResponse = await window.api.billing.hasActiveDraft();
-      if (draftResponse.success && draftResponse.data) {
-        setDeactivateError('An active draft exists. Finish or discard the current bill before deactivating.');
-        setIsDeactivating(false);
-        return;
-      }
-      const response = await window.api.licensing.deactivate();
-      if (!response.success) {
-        setDeactivateError(response.error?.message || 'Failed to deactivate license.');
-      } else {
-        // App will re-render to ActivationScreen automatically via licensing store refresh
-        // But we must tell the store to fetch latest status.
-        useLicensingStore.getState().fetchStatus();
-      }
-    } catch (err: any) {
-      setDeactivateError('An unexpected error occurred during deactivation.');
-    } finally {
-      setIsDeactivating(false);
-    }
-  };
-
   if (isLoading && !localSettings) {
     return <div className="p-6 flex items-center justify-center h-screen w-screen bg-slate-50">Loading settings...</div>;
   }
@@ -306,16 +272,6 @@ export const SettingsLayout: React.FC = () => {
             </div>
           </button>
 
-          <button 
-            onClick={() => scrollToSection('licensing')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${activeSection === 'licensing' ? 'bg-indigo-50/70 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-          >
-            <svg className={`w-5 h-5 shrink-0 ${activeSection === 'licensing' ? 'text-indigo-600' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-            <div>
-              <div className="text-sm font-bold">Licensing</div>
-              <div className={`text-xs ${activeSection === 'licensing' ? 'text-indigo-500/80' : 'text-slate-400'}`}>License information</div>
-            </div>
-          </button>
 
           <button 
             data-testid="settings-tab-data"
@@ -489,91 +445,6 @@ export const SettingsLayout: React.FC = () => {
                   Test Print
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* LICENSING */}
-          <div ref={licensingRef} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 scroll-mt-6 shrink-0">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Licensing</h2>
-                <p className="text-sm font-medium text-slate-500">View your current license status.</p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-600">Status</span>
-                {licensingStatus?.state === 'ACTIVE' ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                    Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                    {licensingStatus?.state || 'Unknown'}
-                  </span>
-                )}
-              </div>
-              
-              {licensingStatus?.state === 'ACTIVE' && (
-                <>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                    <span className="text-sm font-semibold text-slate-600">License ID</span>
-                    <span className="text-sm font-medium font-mono text-slate-900">{licensingStatus.licenseId ? 'XXXX-XXXX-' + licensingStatus.licenseId.split('-').pop() : 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                    <span className="text-sm font-semibold text-slate-600">Valid From</span>
-                    <span className="text-sm font-medium text-slate-900">{licensingStatus.validFrom ? new Date(licensingStatus.validFrom).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                    <span className="text-sm font-semibold text-slate-600">Valid Until</span>
-                    <span className="text-sm font-medium text-slate-900">{licensingStatus.validUntil ? new Date(licensingStatus.validUntil).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  
-                  <div className="pt-4 mt-2 border-t border-slate-200">
-                    {!showDeactivateConfirm ? (
-                      <button 
-                        onClick={() => {
-                          setShowDeactivateConfirm(true);
-                          setDeactivateError(null);
-                        }}
-                        className="px-4 py-2 border border-red-200 text-red-700 bg-red-50 font-bold rounded-lg hover:bg-red-100 transition-colors shadow-sm text-sm"
-                      >
-                        Deactivate License...
-                      </button>
-                    ) : (
-                      <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
-                        <h4 className="font-bold text-red-800 mb-2">Confirm Deactivation</h4>
-                        <p className="text-sm text-red-700 mb-4 font-medium">
-                          Deactivating will remove the license from this device and require an active internet connection. You can reuse this license on another device.
-                        </p>
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={handleDeactivate}
-                            disabled={isDeactivating}
-                            className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 active:scale-95 text-sm shadow-sm"
-                          >
-                            {isDeactivating ? 'Deactivating...' : 'Confirm Deactivate'}
-                          </button>
-                          <button 
-                            onClick={() => setShowDeactivateConfirm(false)}
-                            disabled={isDeactivating}
-                            className="px-4 py-2 border border-slate-300 text-slate-700 bg-white font-bold rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 text-sm"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                        {deactivateError && <p className="text-sm font-bold text-red-600 mt-3">{deactivateError}</p>}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
           </div>
 

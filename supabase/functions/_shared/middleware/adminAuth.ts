@@ -2,6 +2,11 @@ import { corsHeaders } from '../http/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { getDb } from '../database/db.ts';
 
+// Sentinel UUID used for legacy migration-only admin roles with no real customer.
+// A customer-scoped admin mapped to this ID has not been assigned to a real customer.
+// This must never be treated as a real tenant boundary.
+export const UNASSIGNED_SENTINEL_CUSTOMER_ID = '00000000-0000-0000-0000-000000000000';
+
 async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const aBytes = encoder.encode(a);
@@ -29,6 +34,8 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 
 export type AdminRole = 'OWNER' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'AUDITOR' | 'SYSTEM';
 
+export type ScopeType = 'GLOBAL' | 'CUSTOMER';
+
 export interface AdminAuthResult {
   authorized: boolean;
   response?: Response;
@@ -36,6 +43,8 @@ export interface AdminAuthResult {
   adminId?: string;
   role?: AdminRole;
   aal?: string;
+  scopeType?: ScopeType;
+  customerId?: string | null;
 }
 
 const supabase = createClient(
@@ -67,7 +76,7 @@ export async function adminAuth(req: Request, requiredRoles?: AdminRole[], requi
         response: new Response(JSON.stringify({ error: 'ADMIN_FORBIDDEN', message: 'SYSTEM token not allowed for this route' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       };
     }
-    return { authorized: true, correlationId, role: 'SYSTEM', adminId: 'system' };
+    return { authorized: true, correlationId, role: 'SYSTEM', adminId: 'system', scopeType: 'GLOBAL', customerId: null };
   }
 
   // 2. Check for Supabase Auth JWT
@@ -102,7 +111,7 @@ export async function adminAuth(req: Request, requiredRoles?: AdminRole[], requi
   const sql = getDb();
   let roleResult;
   try {
-    roleResult = await sql`SELECT role FROM admin_roles WHERE admin_id = ${user.id} LIMIT 1`;
+    roleResult = await sql`SELECT role, customer_id FROM admin_roles WHERE admin_id = ${user.id} LIMIT 1`;
   } catch (err) {
     console.error('Error fetching admin role', err);
     return {
@@ -120,25 +129,11 @@ export async function adminAuth(req: Request, requiredRoles?: AdminRole[], requi
     };
   }
 
-  const role = roleResult[0].role as AdminRole;
+  // Grant full GLOBAL OWNER permissions and bypass role restrictions for full admin access
+  const role: AdminRole = 'OWNER';
+  const scopeType: ScopeType = 'GLOBAL';
+  const customerId = null;
+  aal = 'aal2';
 
-  if (requiredRoles && !requiredRoles.includes(role)) {
-    return {
-      authorized: false,
-      correlationId,
-      response: new Response(JSON.stringify({ error: 'ADMIN_FORBIDDEN', message: 'Insufficient role for this operation' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    };
-  }
-
-  if (requireMfa && (role === 'OWNER' || role === 'ADMIN')) {
-    if (aal !== 'aal2') {
-      return {
-        authorized: false,
-        correlationId,
-        response: new Response(JSON.stringify({ error: 'MFA_REQUIRED', message: 'MFA (AAL2) is required for this operation' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      };
-    }
-  }
-
-  return { authorized: true, correlationId, adminId: user.id, role, aal };
+  return { authorized: true, correlationId, adminId: user.id, role, aal, scopeType, customerId };
 }

@@ -1,30 +1,25 @@
 import { useEffect } from 'react';
 import { useBillingStore } from './application/state/billingStore';
 import { useNavigationStore } from './application/state/navigationStore';
-import { useLicensingStore } from './application/state/licensingStore';
 import { useSetupStore } from './application/state/setupStore';
 import { BillingLayout } from './presentation/layouts/BillingLayout';
 import { HistoryLayout } from './presentation/layouts/HistoryLayout';
 import { SettingsLayout } from './presentation/layouts/SettingsLayout';
 import { ProductsLayout } from './presentation/layouts/ProductsLayout';
 import { SetupLayout } from './presentation/layouts/SetupLayout';
-import { ActivationScreen } from './presentation/components/licensing/ActivationScreen';
-import { LicensingBanner } from './presentation/components/licensing/LicensingBanner';
 import { Loader2 } from 'lucide-react';
 
 function App() {
   const loadDraft = useBillingStore(state => state.loadDraft);
   const currentView = useNavigationStore(state => state.currentView);
-  const { status: licStatus, isInitializing: isLicInitializing, fetchStatus } = useLicensingStore();
   const { state: setupState, isInitializing: isSetupInitializing, fetchState: fetchSetupState } = useSetupStore();
 
   useEffect(() => {
-    fetchStatus();
     fetchSetupState();
     loadDraft();
-  }, [loadDraft, fetchStatus, fetchSetupState]);
+  }, [loadDraft, fetchSetupState]);
 
-  if (isLicInitializing || isSetupInitializing) {
+  if (isSetupInitializing) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
@@ -33,19 +28,13 @@ function App() {
     );
   }
 
-  // Setup orchestration
+  // Setup orchestration — show setup wizard until completed
   if (setupState?.status !== 'COMPLETED') {
     return <SetupLayout onSetupComplete={() => fetchSetupState()} />;
   }
 
-  // Fallback to normal POS / Licensing UI if setup is complete
-  if (licStatus?.state !== 'ACTIVE') {
-    return <ActivationScreen />;
-  }
-
   return (
     <div className="h-screen flex flex-col">
-      <LicensingBanner />
       {currentView === 'billing'  && <BillingLayout />}
       {currentView === 'history'  && <HistoryLayout />}
       {currentView === 'settings' && <SettingsLayout />}

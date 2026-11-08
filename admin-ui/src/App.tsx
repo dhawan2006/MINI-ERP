@@ -5,15 +5,11 @@ import { useAuthStore } from './store/authStore';
 import { AppShell } from './components/Layout/AppShell';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { CustomersList } from './pages/Customers/CustomersList';
+import { CustomerDetail } from './pages/Customers/CustomerDetail';
+import { Settings } from './pages/Settings';
+import { AuditLogs } from './pages/AuditLogs';
 import { Loader2 } from 'lucide-react';
-
-// Placeholder Pages
-const Placeholder = ({ title }: { title: string }) => (
-  <div>
-    <h2>{title}</h2>
-    <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>Module pending implementation.</p>
-  </div>
-);
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuthStore();
@@ -34,12 +30,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { setSession, setLoading } = useAuthStore();
+  const { setSession } = useAuthStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
     });
 
     const {
@@ -49,7 +44,7 @@ function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, [setSession, setLoading]);
+  }, [setSession]);
 
   return (
     <BrowserRouter>
@@ -58,11 +53,10 @@ function App() {
         
         <Route path="/" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
-          <Route path="customers" element={<Placeholder title="Customers" />} />
-          <Route path="licenses" element={<Placeholder title="Licenses" />} />
-          <Route path="devices" element={<Placeholder title="Devices" />} />
-          <Route path="audit" element={<Placeholder title="Audit Logs" />} />
-          <Route path="settings" element={<Placeholder title="Settings" />} />
+          <Route path="customers" element={<CustomersList />} />
+          <Route path="customers/:id" element={<CustomerDetail />} />
+          <Route path="audit" element={<AuditLogs />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

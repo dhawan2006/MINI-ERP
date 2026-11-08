@@ -1,5 +1,4 @@
 import { ActiveBillDTO, ProductDTO, FinalizedBillDTO, PrintJobDTO, PdfExportResultDTO } from './dto';
-import { LicensingStatusDTO } from './licensing-dto';
 
 
 
@@ -35,7 +34,7 @@ export type IpcApi = {
   };
   products: {
     findByBarcode: (barcode: string) => Promise<IpcResponse<ProductDTO | null>>;
-    searchActiveByPrefix: (prefix: string) => Promise<IpcResponse<ProductDTO[]>>; // Keep for backwards compatibility
+    searchActiveByPrefix: (prefix: string) => Promise<IpcResponse<ProductDTO[]>>;
     create: (name: string, priceMinor: number, barcode?: string | null) => Promise<IpcResponse<ProductDTO>>;
     update: (id: string, name?: string, priceMinor?: number, barcode?: string | null) => Promise<IpcResponse<ProductDTO>>;
     setActive: (id: string, isActive: boolean) => Promise<IpcResponse<void>>;
@@ -70,34 +69,6 @@ export type IpcApi = {
   restore: {
     validate: () => Promise<IpcResponse<{ filePath: string, metadata: any }>>;
     execute: (filePath: string) => Promise<IpcResponse<void>>;
-  };
-  licensing: {
-    /**
-     * Returns the current licensing runtime state as a safe DTO.
-     * Main is the authority — this is read-only from the renderer's perspective.
-     * IPC failure or Main-side error always returns a non-ACTIVE state.
-     */
-    getState: () => Promise<IpcResponse<LicensingStatusDTO>>;
-    /**
-     * Phase 9: Request activation with a user-provided license key.
-     * Main performs the crypto protocol and network call.
-     */
-    activate: (licenseKey: string) => Promise<IpcResponse<LicensingStatusDTO>>;
-    /**
-     * Phase 11: Request deactivation.
-     * Main performs the crypto protocol, deletes local auth, and refreshes state.
-     */
-    deactivate: () => Promise<IpcResponse<void>>;
-    /**
-     * Phase 2B: Manual runtime check-in verify request.
-     */
-    verifyNow: () => Promise<IpcResponse<LicensingStatusDTO>>;
-    /**
-     * Subscribe to state-change events pushed by Main.
-     * Callback receives only the safe DTO — never raw authorization data.
-     * Returns an unsubscribe function.
-     */
-    onStateChanged: (callback: (dto: LicensingStatusDTO) => void) => () => void;
   };
   setup: {
     getState: () => Promise<IpcResponse<import('./setup-dto').SetupStateDTO>>;
