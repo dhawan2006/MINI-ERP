@@ -35,7 +35,7 @@ export default defineConfig(() => {
       }
     },
     test: {
-      exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**', '**/tests/supabase/**', 'supabase/functions/tests/**', '**/admin-ui/**'],
+      exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**'],
       fileParallelism: false,
       testTimeout: 30000,
     }

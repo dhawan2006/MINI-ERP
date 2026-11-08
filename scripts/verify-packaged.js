@@ -1,3 +1,5 @@
+delete process.env.ELECTRON_RUN_AS_NODE;
+process.env.MINIPOS_E2E_TEST = 'true';
 const { _electron: electron } = require('playwright-core');
 const path = require('path');
 const fs = require('fs');
