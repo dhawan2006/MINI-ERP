@@ -176,6 +176,25 @@ Mini POS automatically generates verified SQLite database backups:
 
 ---
 
-## 9. License
+## 9. Historical Note & Architecture Evolution
+
+Earlier iterations of Mini POS utilized a cloud-based web Admin Panel, remote licensing verification, and Supabase infrastructure. In version 2.0, the entire external architecture was permanently retired in favor of an independent, offline-first desktop design. Complete historical reports, specifications, and decommissioning records are preserved in [`docs/archive/legacy-infrastructure/`](docs/archive/legacy-infrastructure/).
+
+---
+
+## 10. Documentation Index
+
+For detailed engineering guides, schemas, and operational manuals, see the [`docs/`](docs/README.md) directory:
+- [System Architecture](docs/architecture.md)
+- [Development Guide](docs/development.md)
+- [Database Architecture](docs/database.md)
+- [Backup & Disaster Recovery](docs/backup-and-restore.md)
+- [Testing Strategy](docs/testing.md)
+- [Release & Packaging](docs/release.md)
+- [Support & Troubleshooting](docs/support.md)
+
+---
+
+## 11. License
 
 This project is licensed under the [ISC License](LICENSE).

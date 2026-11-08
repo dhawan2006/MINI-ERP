@@ -201,10 +201,10 @@ if [ $FAIL -gt 0 ]; then
 else
   echo -e "${green}✅ Inspection PASSED.${nc}"
   echo ""
-  echo " Security statement (Phase 12):"
-  echo "   Mini POS enforces licensing via cryptographic authorization."
+  echo " Security statement (Mini POS 2.0 Standalone):"
+  echo "   Mini POS operates as an independent, standalone desktop POS."
   echo "   The Main process is the sole billing authority."
-  echo "   The renderer cannot authorize billing or set licensing state."
+  echo "   No licensing server, activation gates, or cloud dependencies exist."
   echo "   Server private signing keys are NOT present in the client artifact."
   echo "   Admin credentials are NOT present in the client artifact."
   exit 0

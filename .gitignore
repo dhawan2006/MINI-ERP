@@ -132,5 +132,4 @@ release/
 db/
 *.db
 *.db-journal
-server/licensing/node_modules/
-server/licensing/dist/
+

@@ -57,13 +57,17 @@ fi
 
 # ── Gate 3: Server TypeScript compilation ────────────────────────────────────
 step "Gate 3: Server TypeScript compilation"
-cd server/licensing
-if npx tsc --noEmit 2>&1 | tail -5; then
-  pass "Server TypeScript compiles without errors."
+if [ -d "server/licensing" ]; then
+  cd server/licensing
+  if npx tsc --noEmit 2>&1 | tail -5; then
+    pass "Server TypeScript compiles without errors."
+  else
+    fail "Server TypeScript compilation failed."
+  fi
+  cd ../..
 else
-  fail "Server TypeScript compilation failed."
+  pass "Standalone architecture: No server/licensing directory present."
 fi
-cd ../..
 
 # ── Gate 4: Static secret scan (source tree) ─────────────────────────────────
 step "Gate 4: Static secret scan"
@@ -96,11 +100,15 @@ fi
 # ── Gate 5: Migration safety scan ────────────────────────────────────────────
 step "Gate 5: Migration safety scan"
 
-DROP_VIOLATIONS=$(grep -l "^DROP TABLE" server/licensing/migrations/*.sql 2>/dev/null || true)
-if [ -n "$DROP_VIOLATIONS" ]; then
-  fail "DROP TABLE found in production migrations: $DROP_VIOLATIONS"
+if [ -d "server/licensing/migrations" ]; then
+  DROP_VIOLATIONS=$(grep -l "^DROP TABLE" server/licensing/migrations/*.sql 2>/dev/null || true)
+  if [ -n "$DROP_VIOLATIONS" ]; then
+    fail "DROP TABLE found in production migrations: $DROP_VIOLATIONS"
+  else
+    pass "No DROP TABLE in production migrations."
+  fi
 else
-  pass "No DROP TABLE in production migrations."
+  pass "Standalone architecture: No server/licensing migrations directory present."
 fi
 
 # ── Gate 6: License bypass scan ──────────────────────────────────────────────
