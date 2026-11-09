@@ -67,10 +67,12 @@ async function launchApp(userDataOverride?: string): Promise<{ app: ElectronAppl
   if (userDataOverride) {
     // Override userData path for isolated test profiles
     env.APPDATA = userDataOverride;
+    env.MINIPOS_USER_DATA_DIR = userDataOverride;
   }
 
   const electronApp = await electron.launch({
     executablePath,
+    args: userDataOverride ? [`--user-data-dir=${userDataOverride}`] : [],
     env,
     timeout: 20000,
   });

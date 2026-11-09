@@ -25,6 +25,11 @@ import { registerRestoreHandlers } from './ipc/restore.handlers';
 import { ElectronDialogService } from './services/ElectronDialogService';
 import { FakeDialogService } from './services/FakeDialogService';
 
+// Allow userData override for isolated test suites (e.g. E2E onboarding tests)
+if (process.env.MINIPOS_USER_DATA_DIR) {
+  app.setPath('userData', process.env.MINIPOS_USER_DATA_DIR);
+}
+
 // ─── Single-Instance Lock ────────────────────────────────────────────────────
 // Prevents multiple simultaneous instances of Mini POS, which would cause
 // concurrent writes to the SQLite database and potential data corruption.
