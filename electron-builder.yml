@@ -30,8 +30,6 @@ win:
   # ICO required for installer branding, taskbar icon, and Explorer thumbnail.
   # Generated from build/icon.png by scripts/generate-icons.mjs at build time.
   icon: build/icon.ico
-  # Publisher metadata shown in Windows installer and Programs & Features.
-  publisherName: "Mini POS"
   # Request user-level elevation only. Per-machine installation would require
   # Administrator privileges on domain-joined and UAC-restricted machines.
   requestedExecutionLevel: asInvoker
