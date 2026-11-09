@@ -368,3 +368,4 @@ test.describe('Windows Packaged App — Error Handling', () => {
     expect(result.error?.code).toBeTruthy();
   });
 });
+

@@ -103,3 +103,4 @@ main().catch((err) => {
   console.error('[generate-icons] ❌ Fatal error:', err.message || err);
   process.exit(1);
 });
+
