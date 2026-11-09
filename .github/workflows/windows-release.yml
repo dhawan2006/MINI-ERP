@@ -108,7 +108,8 @@ jobs:
           // Attempt to load the native module directly under the Windows Node runtime.
           // This confirms the win32-x64 N-API prebuild is loadable BEFORE packaging.
           try {
-            const Database = require('./node_modules/better-sqlite3');
+            const path = require('path');
+            const Database = require(path.resolve('node_modules/better-sqlite3'));
             const db = new Database(':memory:');
             db.pragma('journal_mode = WAL');
             const result = db.prepare('SELECT 42 AS answer').get();
