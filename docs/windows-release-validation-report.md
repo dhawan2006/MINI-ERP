@@ -203,9 +203,13 @@ Executed directly with `Mini POS Setup 1.0.0.exe` under PowerShell on Windows Se
 
 ## 10. Master Certification Recommendation
 
-### **RECOMMENDATION: GO FOR WINDOWS RELEASE**
+### **RECOMMENDATION: CONDITIONAL GO FOR WINDOWS RELEASE**
 
-- **Compatibility**: Certified across Electron 44, Node 22, and Windows x64.
+- **Compatibility**: Certified across Electron 44, Node 22, and Windows x64 in automated CI.
 - **Database**: `better-sqlite3` native Node-API binary loads and executes flawlessly.
-- **Packaging**: NSIS installer (`Mini POS Setup 1.0.0.exe`) builds, installs silently, executes cleanly, preserves data, and uninstalls cleanly.
+- **Packaging**: NSIS installer (`Mini POS Setup 1.0.0.exe`) builds, installs silently, executes cleanly, preserves data, and uninstalls cleanly in automated CI.
 - **macOS Preservation**: Existing macOS build pipeline and business logic remain 100% unaltered.
+- **Release Conditions**:
+  1. **Interactive Windows 11 Desktop QA**: Perform manual click-through validation (NSIS installer wizard, Start Menu/Desktop shortcuts, native Win32 file dialogs) inside a genuine Windows 11 desktop session as specified in `docs/windows-phase13-acceptance-report.md`.
+  2. **Authenticode Signing**: Configure `WIN_CSC_LINK` in GitHub Secrets to establish publisher identity and mitigate SmartScreen friction.
+  3. **Hardware Scope**: Note that USB thermal printing is explicitly unsupported in v1.0.0; retail stores requiring receipt printing should utilize Network TCP ESC/POS printing (Port 9100) or PDF export.
