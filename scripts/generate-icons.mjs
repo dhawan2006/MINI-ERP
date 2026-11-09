@@ -18,8 +18,11 @@
 import { Jimp } from 'jimp';
 import { writeFileSync, existsSync, statSync } from 'fs';
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-const PROJECT_ROOT = new URL('..', import.meta.url).pathname;
+const PROJECT_ROOT = existsSync(resolve(process.cwd(), 'build', 'icon.png'))
+  ? process.cwd()
+  : fileURLToPath(new URL('..', import.meta.url));
 const SRC_PNG = resolve(PROJECT_ROOT, 'build', 'icon.png');
 const OUT_ICO = resolve(PROJECT_ROOT, 'build', 'icon.ico');
 
