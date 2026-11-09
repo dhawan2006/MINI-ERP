@@ -228,8 +228,8 @@ test.describe('Windows Packaged App — Billing Workflow', () => {
   test('billing:finalize creates a bill record', async () => {
     const result = await win.evaluate(() => (window as any).api.billing.finalize());
     expect(result.success).toBe(true);
-    expect(result.data?.billId).toBeGreaterThan(0);
-    expect(result.data?.total).toBeGreaterThan(0);
+    expect(result.data?.billNumber).toBeGreaterThan(0);
+    expect(result.data?.totalMinor).toBeGreaterThan(0);
   });
 
   test('history:list includes the finalized bill', async () => {

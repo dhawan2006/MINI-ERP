@@ -5,11 +5,13 @@ const path = require('path');
 const fs = require('fs');
 
 (async () => {
-  const executablePath = path.resolve(
-    process.platform === 'darwin'
-      ? './release/mac-arm64/Mini POS.app/Contents/MacOS/Mini POS'
-      : './release/win-unpacked/Mini POS.exe'
-  );
+  const executablePath = process.env.MINIPOS_WIN_EXE
+    ? path.resolve(process.env.MINIPOS_WIN_EXE)
+    : path.resolve(
+        process.platform === 'darwin'
+          ? './release/mac-arm64/Mini POS.app/Contents/MacOS/Mini POS'
+          : './release/win-unpacked/Mini POS.exe'
+      );
   
   if (!fs.existsSync(executablePath)) {
     console.error(`❌ [Verify] Packaged executable not found at: ${executablePath}`);

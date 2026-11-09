@@ -182,9 +182,6 @@ jobs:
       # ── 13. Packaged application smoke tests ─────────────────────────────
       # These tests launch the actual unpacked EXE (not the NSIS installer)
       # to verify runtime behavior: SQLite loading, IPC, settings, history.
-      - name: Install Playwright for packaged app tests
-        run: npx playwright install --with-deps chromium
-
       - name: Run packaged application smoke tests
         shell: bash
         run: |
@@ -196,7 +193,16 @@ jobs:
             exit 1
           fi
           echo "Smoke testing: $WIN_EXE"
-          MINIPOS_E2E_TEST=true node scripts/verify-packaged.js
+          MINIPOS_WIN_EXE="$WIN_EXE" MINIPOS_E2E_TEST=true node scripts/verify-packaged.js
+        env:
+          ELECTRON_ENABLE_LOGGING: "1"
+
+      - name: Run packaged application Playwright E2E suite
+        shell: bash
+        run: |
+          WIN_EXE=$(find release/win-unpacked -name "*.exe" -not -name "Uninstall*" | head -1)
+          echo "Running Playwright E2E suite against: $WIN_EXE"
+          MINIPOS_WIN_EXE="$WIN_EXE" npm run test:e2e:windows
         env:
           ELECTRON_ENABLE_LOGGING: "1"
 
@@ -205,26 +211,21 @@ jobs:
       #   - Installation completes without error
       #   - Start Menu shortcut is created
       #   - Application launches after install
+      #   - SQLite database is initialized in %APPDATA%
       #   - Uninstall removes application files but preserves user data
       - name: Run NSIS installer acceptance tests
         shell: powershell
         run: |
           $installer = (Get-ChildItem release -Filter "*.exe" -File | Select-Object -First 1).FullName
           $testInstallDir = "$env:TEMP\minipos-ci-install-test"
-          $testDataDir = "$env:TEMP\minipos-ci-userdata"
 
-          Write-Output "=== Windows Installer Acceptance Test ==="
+          Write-Output "=== 1. Windows Installer Silent Installation Test ==="
           Write-Output "Installer: $installer"
           Write-Output "Install dir: $testInstallDir"
 
           # Install silently into a test directory
-          # /D= sets the destination directory (NSIS-specific flag)
-          $installArgs = @(
-            "/S",
-            "/D=$testInstallDir"
-          )
-          Write-Output "Installing silently..."
-          $proc = Start-Process -FilePath $installer -ArgumentList $installArgs -Wait -PassThru
+          # /D= sets destination directory (NSIS-specific flag, must be last without quotes)
+          $proc = Start-Process -FilePath $installer -ArgumentList "/S", "/D=$testInstallDir" -Wait -PassThru
           if ($proc.ExitCode -ne 0) {
             Write-Error "❌ Installer exited with code: $($proc.ExitCode)"
             exit 1
@@ -234,26 +235,59 @@ jobs:
           # Verify installed EXE exists
           $installedExe = Join-Path $testInstallDir "Mini POS.exe"
           if (-not (Test-Path $installedExe)) {
-            # Try alternate location pattern
-            $installedExe = Get-ChildItem $testInstallDir -Filter "*.exe" -Recurse | Select-Object -First 1
-            if (-not $installedExe) {
+            $found = Get-ChildItem $testInstallDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -notmatch "Uninstall" } | Select-Object -First 1
+            if (-not $found) {
               Write-Error "❌ Installed executable not found in $testInstallDir"
               Get-ChildItem $testInstallDir -Recurse | Select-Object FullName | Write-Output
               exit 1
             }
-            $installedExe = $installedExe.FullName
+            $installedExe = $found.FullName
           }
           Write-Output "✅ Installed executable found: $installedExe"
 
           # Verify uninstaller exists
           $uninstaller = Get-ChildItem $testInstallDir -Filter "Uninstall*" -File | Select-Object -First 1
-          if ($uninstaller) {
-            Write-Output "✅ Uninstaller found: $($uninstaller.FullName)"
-          } else {
-            Write-Output "⚠️  Uninstaller not found in install directory (may be in a subdirectory)"
+          if (-not $uninstaller) {
+            Write-Error "❌ Uninstaller not found in $testInstallDir"
+            exit 1
           }
+          Write-Output "✅ Uninstaller found: $($uninstaller.FullName)"
 
-          Write-Output "✅ NSIS installer acceptance test PASSED"
+          Write-Output "=== 2. Verify Installed Application Launch & SQLite ==="
+          $env:MINIPOS_WIN_EXE = $installedExe
+          $env:MINIPOS_E2E_TEST = "true"
+          node scripts/verify-packaged.js
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ Installed application failed runtime verification"
+            exit 1
+          }
+          Write-Output "✅ Installed application launched and verified successfully"
+
+          Write-Output "=== 3. Verify SQLite Database in AppData ==="
+          $dbPath = Join-Path $env:APPDATA "Mini POS\mini-erp-data\billing.db"
+          if (-not (Test-Path $dbPath)) {
+            Write-Error "❌ Expected database file not found at $dbPath"
+            exit 1
+          }
+          Write-Output "✅ Database verified at: $dbPath"
+
+          Write-Output "=== 4. Test Uninstaller & Data Preservation ==="
+          $uninstProc = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S", "_?=$testInstallDir" -Wait -PassThru
+          Start-Sleep -Seconds 3
+
+          if (Test-Path $installedExe) {
+            Write-Error "❌ Executable still exists after uninstallation: $installedExe"
+            exit 1
+          }
+          Write-Output "✅ Installed executable removed by uninstaller"
+
+          if (-not (Test-Path $dbPath)) {
+            Write-Error "❌ Database was improperly deleted during uninstallation!"
+            exit 1
+          }
+          Write-Output "✅ Database preserved after uninstallation: $dbPath"
+
+          Write-Output "✅ NSIS installer acceptance test PASSED completely"
 
       # ── 15. Upload build artifacts ────────────────────────────────────────
       - name: Upload Windows installer artifact
