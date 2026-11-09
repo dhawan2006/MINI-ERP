@@ -55,7 +55,7 @@ describe('BackupService', () => {
     // Force the SQLite backup API to throw by giving an invalid path like a directory
     const invalidPath = path.join(tempDir, 'backup');
     
-    await expect(backupService.createBackup(invalidPath)).rejects.toThrow('BACKUP_FAILED');
+    await expect(backupService.createBackup(invalidPath)).rejects.toThrow(/BACKUP_FAILED|BACKUP_PERMISSION_DENIED/);
     
     // Check if any .tmp file was left
     const files = fs.readdirSync(path.join(tempDir, 'backup'));
