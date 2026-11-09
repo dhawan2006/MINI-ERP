@@ -139,7 +139,7 @@ app.whenReady().then(async () => {
   const backupService = BackupService.getInstance();
   const restoreService = RestoreService.getInstance();
 
-  const dialogService = !app.isPackaged && process.env.MINIPOS_E2E_TEST === 'true'
+  const dialogService = process.env.MINIPOS_E2E_TEST === 'true'
     ? new FakeDialogService()
     : new ElectronDialogService();
 

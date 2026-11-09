@@ -149,7 +149,7 @@ test.describe('Windows Packaged App — First Launch Onboarding', () => {
   test('setup:getState returns pending setup on fresh install', async () => {
     const result = await win.evaluate(() => (window as any).api.setup.getState());
     expect(result.success).toBe(true);
-    expect(result.data.setupStatus).toMatch(/PENDING|IN_PROGRESS/);
+    expect(result.data.status).toMatch(/NOT_STARTED|IN_PROGRESS/);
   });
 
   test('setup:saveStoreProfile accepts shop name', async () => {
@@ -167,7 +167,7 @@ test.describe('Windows Packaged App — First Launch Onboarding', () => {
   test('setup:getState shows COMPLETED after onboarding', async () => {
     const result = await win.evaluate(() => (window as any).api.setup.getState());
     expect(result.success).toBe(true);
-    expect(result.data.setupStatus).toBe('COMPLETED');
+    expect(result.data.status).toBe('COMPLETED');
   });
 });
 
@@ -179,7 +179,7 @@ test.describe('Windows Packaged App — Billing Workflow', () => {
     ({ app: electronApp, win } = await launchApp());
     // Complete setup if needed
     const setupState = await win.evaluate(() => (window as any).api.setup.getState());
-    if (setupState.data?.setupStatus !== 'COMPLETED') {
+    if (setupState.data?.status !== 'COMPLETED') {
       await win.evaluate(() => (window as any).api.setup.saveStoreProfile('Billing Test Store'));
       await win.evaluate(() => (window as any).api.setup.complete());
     }
@@ -287,7 +287,7 @@ test.describe('Windows Packaged App — Backup and Restore', () => {
     ({ app: electronApp, win } = await launchApp());
     // Complete setup if needed
     const setupState = await win.evaluate(() => (window as any).api.setup.getState());
-    if (setupState.data?.setupStatus !== 'COMPLETED') {
+    if (setupState.data?.status !== 'COMPLETED') {
       await win.evaluate(() => (window as any).api.setup.saveStoreProfile('Backup Test Store'));
       await win.evaluate(() => (window as any).api.setup.complete());
     }
@@ -310,21 +310,22 @@ test.describe('Windows Packaged App — Backup and Restore', () => {
   });
 
   test('restore:validate validates a known-good backup', async () => {
-    // FakeDialogService returns userData/e2e-test-backups/mock-restore.db
-    // We need to put a valid backup there first
+    // Export a valid backup first
     const backupResult = await win.evaluate(() => (window as any).api.backup.export());
     expect(backupResult.success).toBe(true);
+    expect(backupResult.data?.filePath).toBeTruthy();
 
-    // FakeDialogService.showOpenDialog returns a fixed path.
-    // For this test we verify that restore:validate processes the file.
-    const validateResult = await win.evaluate(() => (window as any).api.restore.validate());
-    // Either success or RESTORE_CANCELLED (if no mock-restore.db exists yet) are acceptable;
-    // failure indicates a code-level error in the validation path.
-    expect(['true', 'false']).toContain(String(validateResult.success));
-    if (!validateResult.success) {
-      // Acceptable: the FakeDialogService file doesn't exist yet
-      expect(validateResult.error?.code).not.toMatch(/INTERNAL|CRASH|EXCEPTION/i);
+    // FakeDialogService returns userData/e2e-test-backups/mock-restore.db
+    // Copy the exported backup there so restore:validate finds a real valid DB file
+    const userDataPath = await electronApp.evaluate(({ app }) => app.getPath('userData'));
+    const mockRestorePath = path.join(userDataPath, 'e2e-test-backups', 'mock-restore.db');
+    if (fs.existsSync(backupResult.data.filePath)) {
+      fs.copyFileSync(backupResult.data.filePath, mockRestorePath);
     }
+
+    const validateResult = await win.evaluate(() => (window as any).api.restore.validate());
+    expect(validateResult.success).toBe(true);
+    expect(validateResult.data?.metadata?.isValid).toBe(true);
   });
 });
 
