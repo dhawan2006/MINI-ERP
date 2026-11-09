@@ -37,9 +37,23 @@ export class BackupService {
       // 2. Verify the output independently
       this.verifyBackup(tempDestinationPath);
 
-      // 3. Atomic rename to final destination
-      // Using fs.renameSync which performs atomic rename on the same filesystem
-      fs.renameSync(tempDestinationPath, finalDestinationPath);
+      // 3. Move temp file to final destination.
+      // fs.renameSync is atomic on the same filesystem/drive letter, but throws
+      // EXDEV on Windows when source and destination are on different volumes
+      // (e.g. user picks D:\ while temp file is in C:\Users\...\AppData).
+      // We fall back to copy+unlink for cross-volume moves.
+      try {
+        fs.renameSync(tempDestinationPath, finalDestinationPath);
+      } catch (renameErr: any) {
+        if (renameErr.code === 'EXDEV') {
+          // Cross-device rename: fall back to copy then delete
+          log.info('[BackupService] Cross-volume move detected (EXDEV). Using copy+unlink fallback.');
+          fs.copyFileSync(tempDestinationPath, finalDestinationPath);
+          fs.unlinkSync(tempDestinationPath);
+        } else {
+          throw renameErr;
+        }
+      }
       log.info(`[BackupService] Backup completed successfully at: ${finalDestinationPath}`);
 
     } catch (err: any) {

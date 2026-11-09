@@ -10,10 +10,12 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:windows": "playwright test --config=playwright.windows.config.ts",
+    "generate:icons": "node scripts/generate-icons.mjs",
     "package:mac:arm64": "node scripts/prebuild-check.js && npm run build && electron-builder --mac --arm64",
     "package:mac:x64": "node scripts/prebuild-check.js && npm run build && electron-builder --mac --x64",
     "package:mac:universal": "node scripts/prebuild-check.js && npm run build && electron-builder --mac --universal",
-    "package:win:x64": "node scripts/prebuild-check.js && npm run build && electron-builder --win --x64"
+    "package:win:x64": "node scripts/generate-icons.mjs && node scripts/prebuild-check.js && npm run build && electron-builder --win --x64"
   },
   "keywords": [],
   "author": "",

@@ -25,6 +25,18 @@ import { registerRestoreHandlers } from './ipc/restore.handlers';
 import { ElectronDialogService } from './services/ElectronDialogService';
 import { FakeDialogService } from './services/FakeDialogService';
 
+// ─── Single-Instance Lock ────────────────────────────────────────────────────
+// Prevents multiple simultaneous instances of Mini POS, which would cause
+// concurrent writes to the SQLite database and potential data corruption.
+// On Windows this is especially important as there is no macOS app bundle
+// enforcement to prevent duplicate launches.
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  // Another instance is already running. Focus it and exit this one.
+  app.quit();
+  process.exit(0);
+}
+
 // Initialize logging and process-level crash handlers
 initLogger();
 logger.info('Application starting...');
@@ -61,6 +73,17 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 }
+
+// When a second instance attempts to launch, focus the existing window instead.
+app.on('second-instance', () => {
+  logger.info('Second instance attempted. Focusing existing window.');
+  const windows = BrowserWindow.getAllWindows();
+  if (windows.length > 0) {
+    const win = windows[0];
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
 
 app.whenReady().then(async () => {
   logger.info('App ready, initializing infrastructure...');

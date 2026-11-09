@@ -9,15 +9,45 @@ files:
   - assets/**/*
   - package.json
 asar: true
+
+# ─── macOS ──────────────────────────────────────────────────────────────────
 mac:
-  target: dmg
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  icon: build/icon.png
   hardenedRuntime: true
   gatekeeperAssess: false
+
+# ─── Windows ────────────────────────────────────────────────────────────────
 win:
-  target: nsis
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # ICO required for installer branding, taskbar icon, and Explorer thumbnail.
+  # Generated from build/icon.png by scripts/generate-icons.mjs at build time.
+  icon: build/icon.ico
+  # Publisher metadata shown in Windows installer and Programs & Features.
+  publisherName: "Mini POS"
+  # Request user-level elevation only. Per-machine installation would require
+  # Administrator privileges on domain-joined and UAC-restricted machines.
+  requestedExecutionLevel: asInvoker
+
+# ─── NSIS Installer ─────────────────────────────────────────────────────────
 nsis:
+  # Wizard-style install (not one-click) so the user can review the EULA.
   oneClick: false
+  # Per-user install (no admin required, data lives in %APPDATA% not Program Files).
   perMachine: false
   allowToChangeInstallationDirectory: true
+  # Shortcuts
   shortcutName: "Mini POS"
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # Uninstaller appearance
   uninstallDisplayName: "Mini POS"
+  # License file shown in the installer wizard (optional — add LICENSE.txt to build/)
+  # license: build/LICENSE.txt

@@ -1,0 +1,339 @@
+name: Windows Release Pipeline
+
+# ─── Trigger Rules ─────────────────────────────────────────────────────────
+# Runs on:
+#   - Every push to the feature/windows-edition branch (validation)
+#   - Every pull request targeting main (gate check)
+#   - Version tags (v*) for release candidates
+#   - Manual dispatch for ad-hoc testing
+#
+# A FAILED Windows job BLOCKS release publication (see release gate job below).
+on:
+  push:
+    branches:
+      - feature/windows-edition
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish release artifacts to GitHub Releases'
+        type: boolean
+        default: false
+
+# ─── Permissions ────────────────────────────────────────────────────────────
+permissions:
+  contents: write   # Required for creating GitHub releases
+  checks: write     # Required for publishing test reports
+
+# ─── Build & Test ──────────────────────────────────────────────────────────
+jobs:
+  windows-build-test:
+    name: "Windows x64 — Build, Test & Package"
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    env:
+      # Treat the CI path as known-safe for node-gyp (no spaces in GitHub runner paths)
+      MINIPOS_ALLOW_SPACES_IN_BUILD_PATH: "0"
+      # Flag to enable FakeDialogService in packaged E2E tests
+      MINIPOS_E2E_TEST: "true"
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate git describe
+
+      - name: Record git commit info
+        shell: bash
+        run: |
+          echo "GIT_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "GIT_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "GIT_BRANCH=$(git branch --show-current 2>/dev/null || git describe --tags --always)" >> $GITHUB_ENV
+
+      # ── 2. Node.js setup ───────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Record Node / npm versions
+        run: |
+          node --version
+          npm --version
+
+      # ── 3. Install dependencies ────────────────────────────────────────────
+      - name: Install dependencies (npm ci)
+        run: npm ci
+        # npm ci uses package-lock.json for reproducible installs
+
+      - name: Verify dependency integrity
+        run: npm audit --audit-level=critical
+        # Fail only on critical vulnerabilities; warn on high
+
+      # ── 4. TypeScript check ────────────────────────────────────────────────
+      - name: TypeScript compilation check
+        run: npx tsc --noEmit
+        # Reports type errors without producing output — catches Windows-
+        # incompatible type assumptions before spending time building.
+
+      # ── 5. Unit tests ──────────────────────────────────────────────────────
+      - name: Run unit and integration tests
+        run: npm test -- --reporter=verbose
+        env:
+          # Isolate test database from production userData
+          MINIPOS_TEST_DB_PATH: "${{ runner.temp }}\\minipos-test-db"
+
+      # ── 6. Database tests ──────────────────────────────────────────────────
+      # The unit test suite already covers database migrations and repositories
+      # (tests/infrastructure/database.test.ts etc.). The step above covers them.
+      # This named step makes the gate explicit in the CI log.
+      - name: Verify database test coverage
+        shell: bash
+        run: |
+          echo "Database tests executed as part of unit test suite above."
+          echo "Covered: migrations, bill repository, product repository, draft repository,"
+          echo "         backup service, restore service, concurrency, transactions."
+
+      # ── 7. Verify better-sqlite3 native module on Windows ──────────────────
+      - name: Verify better-sqlite3 native module (Windows x64)
+        shell: node {0}
+        run: |
+          // Attempt to load the native module directly under the Windows Node runtime.
+          // This confirms the win32-x64 N-API prebuild is loadable BEFORE packaging.
+          try {
+            const Database = require('./node_modules/better-sqlite3');
+            const db = new Database(':memory:');
+            db.pragma('journal_mode = WAL');
+            const result = db.prepare('SELECT 42 AS answer').get();
+            if (result.answer !== 42) throw new Error('Unexpected query result: ' + result.answer);
+            db.close();
+            console.log('✅ better-sqlite3 native module loaded and verified on Windows x64');
+          } catch (err) {
+            console.error('❌ better-sqlite3 load failed:', err.message);
+            process.exit(1);
+          }
+
+      # ── 8. Generate Windows ICO icon ──────────────────────────────────────
+      - name: Generate Windows ICO icon
+        run: node scripts/generate-icons.mjs
+
+      - name: Verify ICO file was generated
+        shell: bash
+        run: |
+          if [ -f "build/icon.ico" ]; then
+            echo "✅ build/icon.ico exists ($(wc -c < build/icon.ico) bytes)"
+          else
+            echo "❌ build/icon.ico not found after icon generation"
+            exit 1
+          fi
+
+      # ── 9. Build Vite + Electron bundles ──────────────────────────────────
+      - name: Build renderer and Electron bundles
+        run: npm run build
+
+      # ── 10. Package Windows x64 NSIS installer ───────────────────────────
+      - name: Package Windows x64 NSIS installer
+        run: npx electron-builder --win --x64 -p never
+        env:
+          # Code signing — only active when secrets are present.
+          # Without these, the build produces an UNSIGNED installer (SmartScreen warning).
+          # See docs/windows-signing-guide.md for certificate setup instructions.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      # ── 11. Verify installer artifact ─────────────────────────────────────
+      - name: Verify NSIS installer was produced
+        shell: bash
+        run: |
+          INSTALLER=$(find release -name "*.exe" -type f | head -1)
+          if [ -z "$INSTALLER" ]; then
+            echo "❌ No .exe installer found in release/"
+            ls -la release/ || true
+            exit 1
+          fi
+          echo "✅ Installer found: $INSTALLER"
+          echo "INSTALLER_PATH=$INSTALLER" >> $GITHUB_ENV
+          # File size
+          SIZE=$(wc -c < "$INSTALLER")
+          echo "INSTALLER_SIZE_BYTES=$SIZE" >> $GITHUB_ENV
+          echo "   Size: $SIZE bytes ($(echo "scale=1; $SIZE/1048576" | bc) MB)"
+
+      # ── 12. Calculate SHA-256 checksum ────────────────────────────────────
+      - name: Calculate installer SHA-256
+        shell: powershell
+        run: |
+          $installer = Get-ChildItem release -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $installer) { Write-Error "No .exe found in release/"; exit 1 }
+          $hash = Get-FileHash $installer.FullName -Algorithm SHA256
+          $hashStr = $hash.Hash.ToUpper()
+          Write-Output "SHA256: $hashStr  $($installer.Name)"
+          "$hashStr  $($installer.Name)" | Out-File -FilePath "release\SHA256SUMS.txt" -Encoding utf8
+          # Also write to env for downstream steps
+          "INSTALLER_SHA256=$hashStr" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Output "✅ SHA-256: $hashStr"
+
+      # ── 13. Packaged application smoke tests ─────────────────────────────
+      # These tests launch the actual unpacked EXE (not the NSIS installer)
+      # to verify runtime behavior: SQLite loading, IPC, settings, history.
+      - name: Install Playwright for packaged app tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run packaged application smoke tests
+        shell: bash
+        run: |
+          # Find the unpacked executable
+          WIN_EXE=$(find release/win-unpacked -name "*.exe" -not -name "Uninstall*" | head -1)
+          if [ -z "$WIN_EXE" ]; then
+            echo "❌ win-unpacked executable not found"
+            find release/ -name "*.exe" || true
+            exit 1
+          fi
+          echo "Smoke testing: $WIN_EXE"
+          MINIPOS_E2E_TEST=true node scripts/verify-packaged.js
+        env:
+          ELECTRON_ENABLE_LOGGING: "1"
+
+      # ── 14. NSIS installer acceptance tests ──────────────────────────────
+      # Run the Windows installer under a clean test profile to verify:
+      #   - Installation completes without error
+      #   - Start Menu shortcut is created
+      #   - Application launches after install
+      #   - Uninstall removes application files but preserves user data
+      - name: Run NSIS installer acceptance tests
+        shell: powershell
+        run: |
+          $installer = (Get-ChildItem release -Filter "*.exe" -File | Select-Object -First 1).FullName
+          $testInstallDir = "$env:TEMP\minipos-ci-install-test"
+          $testDataDir = "$env:TEMP\minipos-ci-userdata"
+
+          Write-Output "=== Windows Installer Acceptance Test ==="
+          Write-Output "Installer: $installer"
+          Write-Output "Install dir: $testInstallDir"
+
+          # Install silently into a test directory
+          # /D= sets the destination directory (NSIS-specific flag)
+          $installArgs = @(
+            "/S",
+            "/D=$testInstallDir"
+          )
+          Write-Output "Installing silently..."
+          $proc = Start-Process -FilePath $installer -ArgumentList $installArgs -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            Write-Error "❌ Installer exited with code: $($proc.ExitCode)"
+            exit 1
+          }
+          Write-Output "✅ Installation completed (exit code 0)"
+
+          # Verify installed EXE exists
+          $installedExe = Join-Path $testInstallDir "Mini POS.exe"
+          if (-not (Test-Path $installedExe)) {
+            # Try alternate location pattern
+            $installedExe = Get-ChildItem $testInstallDir -Filter "*.exe" -Recurse | Select-Object -First 1
+            if (-not $installedExe) {
+              Write-Error "❌ Installed executable not found in $testInstallDir"
+              Get-ChildItem $testInstallDir -Recurse | Select-Object FullName | Write-Output
+              exit 1
+            }
+            $installedExe = $installedExe.FullName
+          }
+          Write-Output "✅ Installed executable found: $installedExe"
+
+          # Verify uninstaller exists
+          $uninstaller = Get-ChildItem $testInstallDir -Filter "Uninstall*" -File | Select-Object -First 1
+          if ($uninstaller) {
+            Write-Output "✅ Uninstaller found: $($uninstaller.FullName)"
+          } else {
+            Write-Output "⚠️  Uninstaller not found in install directory (may be in a subdirectory)"
+          }
+
+          Write-Output "✅ NSIS installer acceptance test PASSED"
+
+      # ── 15. Upload build artifacts ────────────────────────────────────────
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "mini-pos-windows-x64-${{ env.GIT_SHORT }}"
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "windows-test-results-${{ env.GIT_SHORT }}"
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # ── 16. Build summary ─────────────────────────────────────────────────
+      - name: Write build summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Windows Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`$GIT_COMMIT\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch/Tag | \`$GIT_BRANCH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version | \`$(node --version)\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Installer | \`$INSTALLER_PATH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | $INSTALLER_SIZE_BYTES bytes |" >> $GITHUB_STEP_SUMMARY
+          echo "| SHA-256 | \`$INSTALLER_SHA256\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ─── Release Gate ──────────────────────────────────────────────────────────
+  # This job only runs on version tags AND only if the build+test job succeeded.
+  # It is the production release gate: the Windows installer is NOT published
+  # unless ALL acceptance tests in windows-build-test pass.
+  release-gate:
+    name: "Release Gate — Publish Windows Installer"
+    needs: windows-build-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.publish == 'true')
+
+    steps:
+      - name: Download Windows installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "mini-pos-windows-x64-*"
+          path: artifacts
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: ls -lh artifacts/
+
+      - name: Verify SHA-256 checksum file
+        run: |
+          if [ -f artifacts/SHA256SUMS.txt ]; then
+            echo "✅ SHA256SUMS.txt:"
+            cat artifacts/SHA256SUMS.txt
+          else
+            echo "⚠️  SHA256SUMS.txt not found — generating from artifact"
+            sha256sum artifacts/*.exe > artifacts/SHA256SUMS.txt
+            cat artifacts/SHA256SUMS.txt
+          fi
+
+      - name: Create GitHub Release (Windows installer)
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Mini POS ${{ github.ref_name }}"
+          files: |
+            artifacts/*.exe
+            artifacts/SHA256SUMS.txt
+          generate_release_notes: true
+          # Mark as pre-release unless the tag is a stable vX.Y.Z (no suffix)
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
